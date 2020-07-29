@@ -1,0 +1,146 @@
+---
+title: "tx demography analysis"
+output: html_document
+---
+
+```{r}
+#load("tx_dem_72020.Rdata")
+library(ipumsr)
+ddi<-read_ipums_ddi("~/ExpanDrive/OneDrive Business/usa_00084.xml")
+data<-read_ipums_micro(ddi)
+
+names(data)<-tolower(names(data))
+data<-haven::zap_labels(data)
+
+```
+
+```{r}
+library(car)
+library(dplyr)
+data$pwt <- data$perwt/100
+data$hwt <- data$hhwt/100
+
+data$hisp <- Recode(data$hispan, recodes = "9=NA; 1:4='Hispanic'; 0='NonHispanic'")
+data$race_rec <- Recode(data$race, recodes = "1='White'; 2='Black'; 3='Other'; 4:6='Asian'; 7:9='Other'")
+data$race_eth <- interaction(data$hisp, data$race_rec, sep = "_")
+data$race_eth  <- as.factor(ifelse(substr(as.character(data$race_eth),1,8) == "Hispanic", "Hispanic", as.character(data$race_eth)))
+data$race_eth <- relevel(data$race_eth, ref = "NonHispanic_White")
+
+data$male <- ifelse(data$sex == 1,1,0)
+data$usborn <- Recode(data$bpl, recodes = "1:120=1; 121:900=0; else=NA")
+
+data$educ_level<- Recode(data$educd, recodes = "2:61='0LT_HS';62:64='1_HSD/GED';65:80='2_somecoll';90:100='2_somecoll'; 81:83='3_AssocDegree';101='4_bachelordegree'; 110:116='4_BAplus_GradDegree'; else=NA")
+#binary recode BA+
+data$bsplus<-Recode(data$educd, recodes= "2:83=0; 101:116 =1; else=NA")
+
+#code region
+
+
+data$employed <- Recode(data$empstatd, recodes = "10:12=1; 20:22=0; else=NA")
+data$inhs<- Recode(data$gradeatt, recodes = "5=1; else=0")
+data$incollege <- Recode(data$gradeatt, recodes = "6:7=1; else=0")
+
+data<-data%>%
+  mutate(hsgrad_coll = as.factor(case_when(.$educ_level=='1_HSD/GED' & .$incollege==0 ~ '0hsgrad_notincollege',
+                                 .$educ_level=='1_HSD/GED' & .$incollege==1 ~ '1hsgrad_incollege')))
+
+#data$edu_scal_inc <- ave(data$incwage, data$male, FUN = scale)
+data$inc_adj <- ifelse(data$year == 2005, data$incwage*1.23,
+                      ifelse(data$year == 2006, data$incwage*1.18,
+                             ifelse(data$year == 2007, data$incwage*1.16,
+                                    ifelse(data$year %in% c(2008,2009), data$incwage*1.1, 
+                                           ifelse(data$year == 2010, data$incwage*1.1,
+                                                  ifelse(data$year == 2011, data$incwage*1.07,
+                                                         ifelse(data$year == 2012, data$incwage*1.05,
+                                                                ifelse(data$year == 2013, data$incwage*1.03, 
+                                                                       ifelse(data$year == 2014, data$incwage*1.01,
+                                                                              ifelse(data$year == 2015, data$incwage*1.01, data$incwage))))))))))
+
+#recode years in country, recent vs established 
+
+data$mig<-ifelse(data$year>2000, Recode(data$migrate1, recodes = "1='not moved'; 2='move wn state'; 3='movedfromotherstate'; 4='movedothercountry'; else=NA"), Recode(data$migrate5, recodes = "1='not moved'; 2='move wn state'; 3='movedfromotherstate'; 4='movedothercountry'; else=NA"))
+
+
+sub<-data%>%
+  filter(age>25, is.na(bsplus)==F)
+
+save(sub, file="~/ExpanDrive/OneDrive Business/tx_demography/tx_dem_72020_sub.Rdata")
+rm(data); gc()
+```
+
+```{r, eval=FALSE}
+fit1<-lm(bsplus~year+mig+race_eth, data=sub)
+fit2<-glm(bsplus~year+mig+race_eth, data=sub, family=binomial)
+
+summary(fit1$fitted.values)
+
+```
+
+```{r}
+library(survey)
+
+
+des<-svydesign(ids=~cluster, stata=~strata, data=sub, weight=~pwt)
+
+means<-svyby(~bsplus, ~year+mig, design=des, FUN=svymean, na.rm=T)
+
+means_re<-svyby(~bsplus, ~year+race_eth+mig, design=des, FUN=svymean, na.rm=T)
+
+means_metro<-svyby(~bsplus, ~year+mig+met2013, design=subset(des, met2013!=0), FUN=svymean, na.rm=T)
+
+head(means)
+head(means_re)
+head(means_metro)
+
+```
+
+# wide to long
+```{r}
+library(data.table)
+means_long<-melt(setDT(means), id.vars=c("year", "mig") )
+means_long_re<-melt(setDT(means_re), id.vars=c("year", "race_eth", "mig") )
+means_long_metro<-melt(setDT(means_metro), id.vars = c("year", "mig", "met2013"))
+library(stringr)
+
+means_long<-means_long%>%
+  filter(!str_sub(variable, start=1, end=3)%in%c("se"))
+
+means_long_re<-means_long_re%>%
+  filter(!str_sub(variable, start=1, end=3)%in%c("se"))
+
+means_long_metro<-means_long_metro%>%
+  filter(!str_sub(variable, start=1, end=3)%in%c("se"))
+
+```
+
+# plots
+```{r}
+library(ggplot2)
+
+means_long%>%
+  ggplot(aes(x=year, y=value, group=mig, color=mig))+geom_point()+facet_wrap(~variable, scales = "free_y")+geom_smooth(se=F)+ggtitle(label="Educational attainment by migration status, 2000 - 2017")
+
+means_long_re%>%
+  ggplot(aes(x=year, y=value, group=race_eth, color=race_eth))+geom_point()+facet_wrap(~mig)+geom_smooth(se=F)+ggtitle(label="Educational attainment by migration status and Race/Ethnicity, 2000 - 2017")
+
+
+means_long_metro%>%
+  filter(met2013%in%c("41700", "12420", "19100", "29700"))%>%
+  #filter(race_eth!="NonHispanic_Other")%>%
+  ggplot(aes(x=year, y=value, group=mig, color=mig))+geom_point()+facet_wrap(~met2013, scales = "free_y")+geom_smooth(se=F)+ggtitle(label="Educational attainment by migration status, 2000 - 2017")
+
+summary(glm(value~race_eth*mig+year, data = means_long_re))
+```
+graph of edu by r/e and mig
+
+# stacked bar charts
+graph of recent immigratns vs established
+
+graph of binary educ recode
+
+```{r, eval=FALSE}
+library(ggplot2)
+
+means_long_re%>%
+  ggplot(aes(x=year, y=value, group=race_eth, color=race_eth))+geom_point()+facet_wrap(~variable, scales = "free_y")+geom_smooth(se=F)
+````
