@@ -65,7 +65,7 @@ cpsdat2<-cpsdat2%>%
           recentloss=ifelse(emp=='recent no job', 1,0))%>%
   arrange(CPSIDP, MONTH,MISH)
 
-cpsdat2$emp_bin<-ifelse(cpsdat2$emp!="curr work", 1, 0)
+cpsdat2$emp_bin<-ifelse(cpsdat2$curremp==1, 0, 1)
 cpsdat2$month<- as.Date(as.yearmon(paste(cpsdat2$YEAR,cpsdat2$MONTH, sep="/"), format = "%Y/%m"))
 cpsdat2$race_eth<-interaction(cpsdat2$race, cpsdat2$hisp)
 library(stringr)
@@ -104,6 +104,24 @@ gc()
 #setwd(getwd())
 cpsdat2<-readRDS(file = "data/cpsdat_tx.rds")
 ```
+
+
+```{r}
+des<-svydesign(ids=~1,weights=~WTFINL, data=cpsdat2)
+svyby(~I(curremp==0), ~month, design=des, FUN=svymean)
+
+
+library(srvyr)
+cpsdat2%>%
+  as_survey_design(weights=WTFINL)%>%
+  srvyr::filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino")%>%
+  srvyr::group_by(month)%>%
+  srvyr::summarise(mean=survey_mean(I(curremp==0)))
+
+# %>%
+#   ggplot(aes(x=month, y=mean))+geom_line()
+```
+
 
 ```{r, eval=FALSE, echo=FALSE}
 cpsdat2%>%
