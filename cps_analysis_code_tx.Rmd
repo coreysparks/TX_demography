@@ -149,21 +149,23 @@ cpsdat2%>%
 ```{r, fig.height=8, fig.width=10}
 
 outna<-cpsdat2%>%
-  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  as_survey_design(weights=WTFINL)%>%
+  srvyr::filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
-  group_by(month, race_eth2 )%>%
-  summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+  srvyr::group_by(month, race_eth2 )%>%
+  srvyr::summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
          # avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
-          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+          #emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          unemp=survey_mean(emp_bin, vartype="se"))%>%
   arrange( month)%>%
-  ungroup()%>%
+  srvyr::ungroup()%>%
   arrange( race_eth2, month )
 
 head(outna)
 
 p<-outna%>%
   filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
-  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  ggplot()+geom_line(aes(x=month, y=unemp,color=race_eth2, group=race_eth2), lwd=2)+
   #scale_fill_discrete(name=)+
   labs(title = "Percent Unemployed in Texas by Race/Ethnicity",subtitle = "January to June 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
