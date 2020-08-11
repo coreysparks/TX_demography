@@ -6,12 +6,6 @@ output: html_document
 bibliography: loadedpkgs.bib
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## 
-
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 library(ipumsr)
 library(dplyr)
@@ -25,14 +19,14 @@ library(survey)
 library(plotly)
 library(forcats)
 ```
-#read from original IPUMS
+
 ```{r, eval=FALSE, echo=FALSE,  message=FALSE, warning=FALSE}
 ddi<-read_ipums_ddi("~/ExpanDrive/OneDrive Business///cps_00029.xml")
 cpsdat2<-read_ipums_micro(ddi)
 cpsdat2<-zap_labels(cpsdat2)
 ```
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, echo=FALSE}
 
 stfips<-data.frame(stfip=unique(tidycensus::fips_codes$state_code), stname=unique(tidycensus::fips_codes$state_name))
 head(stfips)
@@ -58,7 +52,7 @@ cpsdat2<-merge(cpsdat2, stfips, by.x="stfip", by.y= "stfip")
 
 ```
 
-```{r, eval=FALSE}
+```{r, eval=FALSE,echo=FALSE}
 cpsdat2<-cpsdat2%>%
   filter(YEAR >2009,AGE>16,EMPSTAT%in%c(10,12,21,22), stname=="Texas")%>%
   mutate(emp = Recode(EMPSTAT, recodes = "0 = NA; 1='af'; 10='curr work'; 12 = 'recent no job'; 20:22='unemp'"),
@@ -106,12 +100,10 @@ saveRDS(cpsdat2, file="~/git_area/TX_demography/cpsdat_tx.rds")
 gc()
 ```
 
-```{r}
+```{r, echo=FALSE}
 #setwd(getwd())
 cpsdat2<-readRDS(file = "data/cpsdat_tx.rds")
 ```
-
-
 
 ```{r, eval=FALSE, echo=FALSE}
 cpsdat2%>%
@@ -134,29 +126,7 @@ cpsdat2%>%
 
 ```
 
-## basic models for month * race * sex variation
-```{r}
-des<-survey::svydesign(ids=~1,  weights = ~WTFINL, data=cpsdat2)
-
-m1<-svyglm(emp_bin~factor(race_eth2)+sex+factor(race_eth2)*factor(month), des, family=binomial)
-#summary(m1)
-anova(m1)
-Anova(m1)
-
-m2<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*factor(month), des, family=binomial)
-#summary(m2)
-Anova(m2)
-
-m3<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*fb*factor(month), des, family=binomial)
-#summary(m3)
-Anova(m3)
-
-
-```
-
-
 ### national rate map
-
 
 ```{r, fig.height=8, fig.width=10}
 
@@ -566,6 +536,27 @@ ggsave(filename = "images/tx_metro_sex.png",height=8, width=10, dpi = "print" )
 
 ```
 
+## Statistical Tests 
+```{r}
+des<-survey::svydesign(ids=~1,  weights = ~WTFINL, data=cpsdat2)
+
+m1<-svyglm(emp_bin~factor(race_eth2)+sex+factor(race_eth2)*factor(month), des, family=binomial)
+#summary(m1)
+#anova(m1)
+Anova(m1)
+
+m2<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*factor(month), des, family=binomial)
+#summary(m2)
+Anova(m2)
+
+m3<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*fb*factor(month), des, family=binomial)
+#summary(m3)
+Anova(m3)
+
+
+```
+
+
 ```{r}
   test<-sessioninfo::session_info()
  knitr::write_bib(test$packages$package, file = "loadedpkgs.bib")
@@ -580,3 +571,4 @@ ggsave(filename = "images/tx_metro_sex.png",height=8, width=10, dpi = "print" )
 @R-ggplot2
 @R-ipumsr
 @R-plotly
+@R-survey

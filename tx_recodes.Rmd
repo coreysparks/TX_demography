@@ -64,7 +64,11 @@ data$mig<-ifelse(data$year>2000, Recode(data$migrate1, recodes = "1='not moved';
 sub<-data%>%
   filter(age>25, is.na(bsplus)==F)
 
+
 save(sub, file="~/ExpanDrive/OneDrive Business/tx_demography/tx_dem_72020_sub.Rdata")
+
+save(sub, file="tx_dem_72020_sub.Rdata")
+>>>>>>> b002c2d3e020652a202fa3cc5494c07f3852fa73
 rm(data); gc()
 ```
 
