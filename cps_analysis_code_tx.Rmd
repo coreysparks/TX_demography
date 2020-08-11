@@ -1,0 +1,582 @@
+---
+title: "Analysis of Texas Unemployment During COVID-19"
+author: "Corey Sparks, PhD"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+bibliography: loadedpkgs.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+library(ipumsr)
+library(dplyr)
+library(car)
+library(zoo)
+library(ggplot2)
+library(questionr)
+library(tidyquant)
+library(fpp)
+library(survey)
+library(plotly)
+library(forcats)
+```
+#read from original IPUMS
+```{r, eval=FALSE, echo=FALSE,  message=FALSE, warning=FALSE}
+ddi<-read_ipums_ddi("~/ExpanDrive/OneDrive Business///cps_00029.xml")
+cpsdat2<-read_ipums_micro(ddi)
+cpsdat2<-zap_labels(cpsdat2)
+```
+
+```{r, eval=FALSE}
+
+stfips<-data.frame(stfip=unique(tidycensus::fips_codes$state_code), stname=unique(tidycensus::fips_codes$state_name))
+head(stfips)
+head(unique(cpsdat2$STATEFIP))
+cpsdat2$stfip<-sprintf("%02d",cpsdat2$STATEFIP)
+
+cpsdat2<-merge(cpsdat2, stfips, by.x="stfip", by.y= "stfip")
+
+# cntpep<-cpsdat2%>%
+#   group_by(CPSIDP)%>%
+#   summarise(ntime=n())%>%
+#   #filter(ntime>1)%>%
+#   arrange(ntime)
+# 
+# cpsdat2<-merge(cpsdat2, cntpep, by="CPSIDP")
+
+# cpsdat2%>%
+#   filter(ntime>1)%>%
+#   select(STATEFIP, YEAR,MISH,MONTH, SERIAL, CPSIDP, AGE, SEX, RACE)%>%
+#   filter(YEAR>2009, CPSIDP!=0)%>%
+#    arrange(CPSIDP, MONTH,MISH)%>%
+#   head(., n=200)
+
+```
+
+```{r, eval=FALSE}
+cpsdat2<-cpsdat2%>%
+  filter(YEAR >2009,AGE>16,EMPSTAT%in%c(10,12,21,22), stname=="Texas")%>%
+  mutate(emp = Recode(EMPSTAT, recodes = "0 = NA; 1='af'; 10='curr work'; 12 = 'recent no job'; 20:22='unemp'"),
+         sex=Recode(SEX, recodes = "1='Male'; 2='Female'; else=NA", as.factor=T),
+         race = Recode (RACE, recodes = "100 = 'White'; 200='Black';300='AIAE';651='Asian';652='NHPI';802:830='multiple'; else=NA"),
+         lfpart = Recode(LABFORCE,recodes="2=1; 1=0; else=NA" ),
+         hisp= ifelse(HISPAN !=0, "Latino", "Not Latino")
+         )%>%
+  mutate( curremp = ifelse(EMPSTAT%in%c(10,12) , 1, 0),
+          recentloss=ifelse(emp=='recent no job', 1,0))%>%
+  arrange(CPSIDP, MONTH,MISH)
+
+cpsdat2$emp_bin<-ifelse(cpsdat2$emp!="curr work", 1, 0)
+cpsdat2$month<- as.Date(as.yearmon(paste(cpsdat2$YEAR,cpsdat2$MONTH, sep="/"), format = "%Y/%m"))
+cpsdat2$race_eth<-interaction(cpsdat2$race, cpsdat2$hisp)
+library(stringr)
+cpsdat2$race_eth2<-ifelse(str_sub(as.character(cpsdat2$race_eth), start = -10)=="Not Latino", as.character(cpsdat2$race_eth),"Latino")
+#cpsdat2$fb<-ifelse(cpsdat2$CITIZEN%in%c(4,5),"Non-citizen", "Citizen")
+#cpsdat2
+cpsdat2$byr<-2020-cpsdat2$AGE
+cpsdat2$cohort<-car::Recode(cpsdat2$byr, recodes = "1944:1964='boomer'; 1965:1979='genx'; 1980:1994='geny'; 1995:2015='genz'; else=NA")
+cpsdat2$educ<-car::Recode(cpsdat2$EDUC, recodes = "21:72='< High School'; 73='High School'; 81:110='Some college';  111:125='Bachelors +';else=NA; 0=NA", as.factor=T)
+cpsdat2$duremp_c<-ifelse(cpsdat2$DURUNEMP==999, NA, cpsdat2$DURUNEMP)
+cpsdat2$fb<-ifelse(cpsdat2$YRIMMIG>0, "Foreign Born", "Native Born")
+cpsdat2$avghrs<-ifelse(cpsdat2$AHRSWORKT==999, NA, cpsdat2$AHRSWORKT)
+cpsdat2<-cpsdat2%>%
+  select(emp_bin,CPSIDP, MISH, MONTH, WTFINL, month, race_eth2, curremp,educ, sex, race, emp, YEAR, AGE, stname, PANLWT, EDUC, avghrs, ABSENT, WKSTAT, EMPSAME, MULTJOB, NUMJOB,recentloss,fb, cohort , METRO, duremp_c, lfpart)%>%
+  filter(is.na(race_eth2)==F, month>=as.Date('2019-06-01'))%>%
+  #filter(AGE>18)%>%
+  group_by(CPSIDP)%>%
+  arrange(CPSIDP, MONTH)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+#head(cpsdat2)
+#rm(cpsdat2)
+#rm(cpsdat2)
+#rm(cntpep)
+cpsdat2<-cpsdat2%>%
+  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")
+
+saveRDS(cpsdat2, file="~/git_area/TX_demography/cpsdat_tx.rds")
+
+#rm(cpsdat2)
+gc()
+```
+
+```{r}
+#setwd(getwd())
+cpsdat2<-readRDS(file = "data/cpsdat_tx.rds")
+```
+
+
+
+```{r, eval=FALSE, echo=FALSE}
+cpsdat2%>%
+  #filter(recentloss==1)%>%
+  #filter(emp=="unemp")%>%
+  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino")%>%
+  group_by(race_eth2, month, sex)%>%
+  summarise(meanweeks=mean(duremp_c, na.rm=T), 
+            ahrs=mean(avghrs, na.rm=T))%>%
+  ggplot()+geom_line(aes(x=month, y=meanweeks, color=race_eth2))+facet_wrap(~sex)
+
+cpsdat2%>%
+  #filter(recentloss==1)%>%
+  #filter(emp=="unemp")%>%
+  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino")%>%
+  group_by(race_eth2, month, sex)%>%
+  summarise(meanweeks=mean(duremp_c, na.rm=T), 
+            ahrs=mean(avghrs, na.rm=T))%>%
+  ggplot()+geom_line(aes(x=month, y=ahrs, color=race_eth2))+facet_wrap(~sex)
+
+```
+
+## basic models for month * race * sex variation
+```{r}
+des<-survey::svydesign(ids=~1,  weights = ~WTFINL, data=cpsdat2)
+
+m1<-svyglm(emp_bin~factor(race_eth2)+sex+factor(race_eth2)*factor(month), des, family=binomial)
+#summary(m1)
+anova(m1)
+Anova(m1)
+
+m2<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*factor(month), des, family=binomial)
+#summary(m2)
+Anova(m2)
+
+m3<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*fb*factor(month), des, family=binomial)
+#summary(m3)
+Anova(m3)
+
+
+```
+
+
+### national rate map
+
+
+```{r, fig.height=8, fig.width=10}
+
+outna<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2 )%>%
+  summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+         # avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2, month )
+
+head(outna)
+
+p<-outna%>%
+  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by Race/Ethnicity",subtitle = "January to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+ylim(c(0, .2))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+
+  scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+ggsave( filename = "images/tx_unemp.png",height=8, width=10, dpi = "print" )
+fig1<-ggplotly(p)
+fig1
+```
+
+## gender
+```{r, fig.height=8, fig.width=10}
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2, sex )%>%
+  summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2,sex, month )
+
+head(outna2)
+
+p2<-outna2%>%
+    filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
+
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by Race/Ethnicity and Gender",subtitle = "January to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+ylim(c(0, .25))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~sex)+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+ggplotly(p2)
+ggsave(filename = "images/tx_unemp_sex.png",height=8, width=10, dpi = "print" )
+```
+
+## gender x race X education
+```{r, fig.height=8, fig.width=10}
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2, educ, sex )%>%
+  summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2,sex,educ, month )
+
+head(outna2)
+library(forcats)
+p3<-outna2%>%
+    filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino", is.na(educ)==F)%>%
+
+  mutate(educ=fct_relevel(educ,"< High School","High School","Some college","Bachelors +" ))%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by Race/Ethnicity, Gender and Education",subtitle = "January to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+#ylim(c(0, .6))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~educ+sex, ncol = 4)+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+ggsave(filename = "images/tx_unemp_sex_educ.png",height=8, width=10, dpi = "print" )
+ggplotly(p3)
+```
+
+
+## foreign born
+```{r, fig.height=8, fig.width=10}
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2, fb )%>%
+  summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+         # avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2,fb, month )
+
+head(outna2)
+
+p4<-outna2%>%
+  mutate(group=paste(race_eth2, fb, sep = "-"))%>%
+  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="Asian.Not Latino", race_eth2!="NHPI.Not Latino", group!="AIAE.Not Latino-Non-citizen")%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by Race/Ethnicity and Nativity Status",subtitle = "January to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+ylim(c(0, .25))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~fb)+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+ggsave(filename = "images/tx_unemp_sex_fb.png",height=8, width=10, dpi = "print" )
+ggplotly(p4)
+#write.csv(outna2, file="~/Documents/GitHub/unemployment/fig_5rates.csv", row.names = F)
+```
+
+### State rate map
+```{r, fig.height=8, fig.width=10, eval=FALSE, echo=FALSE}
+library(geofacet)
+outst<-cpsdat2%>%
+  filter(is.na(race_eth2)==F)%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, stname)%>%
+  summarise(#emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( stname, month )
+
+p<-outst%>%
+  filter(emprate!=0)%>%
+  #filter(emprate!=0)%>%
+  ggplot()+geom_line(aes(x=month, y=emprate, color=emprate))+facet_geo(~stname, grid="us_state_grid2", label="name")+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed by State",subtitle = "February to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+
+  scale_color_viridis_c(name="Percent Unemployed",option="C",  direction=1)+
+  ylim(c(0, .4))+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+p
+ggsave(plot = p,filename = "~/stunemp_norace.png",height=12, width=16, dpi = "print" )
+head(outst)
+write.csv(outst, file="~/Documents/GitHub/unemployment/figst_rate.csv", row.names = F)
+# outst%>%
+#   group_by(month, race_eth2)%>%
+#   summarise(max=max(emprate))
+
+```
+
+```{r, fig.height=8, fig.width=10, eval=FALSE, echo=FALSE}
+outst<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2, stname)%>%
+  summarise(emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)), 
+          nsamp=n())%>%
+  filter(nsamp>30)%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2,stname, month )
+
+p<-outst%>%
+  filter(race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino", emprate!=0, race_eth2!="Asian.Not Latino")%>%
+  #filter(emprate!=0)%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+facet_geo(~stname, grid="us_state_grid2", label="name")+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by State and Race/Ethnicity",subtitle = "January to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+
+  ylim(c(0, .45))+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+  p$labels$colour<-"Race/Ethnicity"
+p
+
+# p<-outst%>%
+#   filter(race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino", emprate!=0)%>%
+#   #filter(emprate!=0)%>%
+#   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+facet_geo(~stname, grid="us_state_grid2", label="name")+
+#   #scale_fill_discrete(name=)+
+#   labs(title = "Percent Unemployed by State and Race/Ethnicity",subtitle = "February to June 2020",
+#        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+#        x = "Month",
+#        y = "Percent Unemployed")+
+#   scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+
+#   ylim(c(0, .45))+
+#   #guides(fill=guide_legend(title="Race/Ethnicity"))+
+#   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+# theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+  p$labels$colour<-"Race/Ethnicity"
+p
+ggsave(plot = p,filename = "~/stunemp.png",height=12, width=16, dpi = "print" )
+write.csv(outst, file="~/Documents/GitHub/unemployment/fig_state_race.csv", row.names = F)
+```
+## gender x race X education
+```{r, fig.height=10, fig.width=10}
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2, educ, sex )%>%
+  summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          nsamp=n())%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2,sex,educ, month )
+
+#write.csv(outna2,file = "~/unemp_to_rogelio.csv", row.names = F)
+head(outna2)
+library(forcats)
+p6<-outna2%>%
+  filter(nsamp>30,race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", is.na(educ)==F, race_eth2!="Asian.Not Latino", educ !="< High School")%>%
+  mutate(educ=fct_relevel(educ,"< High School","High School","Some college","Bachelors +" ))%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by Race/Ethnicity, Gender and Education",subtitle = "January to May 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+ylim(c(0, .4))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~educ+sex, ncol = 4)+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+#<<<<<<< HEAD
+ggsave(filename = "images/tx_unemp_sex_educ.png",height=8, width=10, dpi = "print" )
+ggplotly(p6)
+#write.csv(outna2, file="~/Documents/GitHub/unemployment/fig_gender_edu.csv", row.names = F)
+#>>>>>>> a84ccb9e5b8bcff0b7f9cf5252e05dbf049207d3
+```
+
+
+## race* age
+```{r, fig.height=8, fig.width=10}
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
+  mutate(Age_Group = cut(AGE, breaks = c(16,24, 34, 44, 54, 64, 86), labels = c("16 to 24", "25 to 34", "35 to 44", "45 to 54", "55 to 64", "65 or older"),include.lowest = T))%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month, race_eth2, Age_Group )%>%
+  summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          nsamp=n())%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( race_eth2,Age_Group, month )
+
+#write.csv(outna2,file = "~/unemp_to_rogelio.csv", row.names = F)
+head(outna2)
+library(forcats)
+p7<-outna2%>%
+  filter(nsamp>25,race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", is.na(Age_Group)==F, race_eth2!="Asian.Not Latino")%>%
+  #mutate(educ=fct_relevel(educ,"< High School","High School","Some college","Bachelors +" ))%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed in Texas by Race/Ethnicity, and Age Group",subtitle = "January to May 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+#ylim(c(0, .6))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~Age_Group, ncol = 3)+scale_y_continuous(limits = c(0, .45),labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+ggsave(filename = "images/tx_unemp_age.png",height=8, width=10, dpi = "print" )
+ggplotly(p7)
+#write.csv(outna2, file="~/Documents/GitHub/unemployment/fig_2.csv", row.names = F)
+
+```
+## metro status
+```{r, fig.height=8, fig.width=10}
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F, month>=as.Date('2020-01-01'))%>%
+   filter(METRO!=0, METRO!=4)%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month,  METRO )%>%
+  summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          nsamp=n())%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( METRO, month )
+
+p8<-outna2%>%
+  filter(nsamp>30)%>%
+mutate(metro = car::Recode(METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'"))%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=metro, group=metro), lwd=1.75)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed by Metropolitan Residence",subtitle = "February to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+#ylim(c(0, .4))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Location")+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+ggsave(filename = "images/tx_metro.png",height=8, width=10, dpi = "print" )
+ggplotly(p8)
+```
+
+```{r,eval=FALSE, echo=FALSE}
+#p$labels$colour<-"Race/Ethnicity"
+#p
+
+# head(outna2)
+# 
+# outna2%>%
+#   filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino")%>%
+#   filter(METRO!=0, METRO!=4)%>%
+#   mutate(metro = car::Recode(METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'"))%>%
+#   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+#   #scale_fill_discrete(name=)+
+#   labs(title = "Percent Unemployed byand Race/Ethnicity and Metropolitan Residence",subtitle = "February to June 2020",
+#        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+#        x = "Month",
+#        y = "Percent Unemployed")+#ylim(c(0, .4))+
+#   scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~metro)+
+#   #guides(fill=guide_legend(title="Race/Ethnicity"))+
+#   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+# theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+# 
+# #p$labels$colour<-"Race/Ethnicity"
+# #p
+# ggsave(filename = "~/national_metro_race.png",height=8, width=10, dpi = "print" )
+# 
+outna2<-cpsdat2%>%
+  filter(is.na(race_eth2)==F, month>=as.Date('2019-12-01'))%>%
+   filter(METRO!=0, METRO!=4)%>%
+  #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
+  group_by(month,  METRO, sex, race_eth2 )%>%
+  summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
+          #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+  arrange( month)%>%
+  ungroup()%>%
+  arrange( METRO, month )
+
+head(outna2)
+
+outna2%>%
+  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
+  filter(METRO!=0, METRO!=4)%>%
+  mutate(metro = car::Recode(METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'"))%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  #scale_fill_discrete(name=)+
+  labs(title = "Percent Unemployed byand Race/Ethnicity and Metropolitan Residence",subtitle = "February to June 2020",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Percent Unemployed")+#ylim(c(0, .4))+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~sex+metro)+scale_y_continuous(labels = scales::percent)+
+  #guides(fill=guide_legend(title="Race/Ethnicity"))+
+  #geom_hline(yintercept = 0, col="red", lwd=1.1)+
+theme_minimal()+theme(axis.text.x = element_text(angle = 45))
+
+#p$labels$colour<-"Race/Ethnicity"
+#p
+ggsave(filename = "images/tx_metro_sex.png",height=8, width=10, dpi = "print" )
+
+```
+
+```{r}
+  test<-sessioninfo::session_info()
+ knitr::write_bib(test$packages$package, file = "loadedpkgs.bib")
+
+```
+
+# References 
+
+@R-car
+@R-dplyr
+@R-forcats
+@R-ggplot2
+@R-ipumsr
+@R-plotly
