@@ -2,13 +2,16 @@
 title: "Analysis of Texas Unemployment During COVID-19"
 author: "Corey Sparks, PhD"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 bibliography: loadedpkgs.bib
+always_allow_html: true
 ---
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 library(ipumsr)
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(car)
 library(zoo)
 library(ggplot2)
@@ -17,11 +20,14 @@ library(tidyquant)
 library(fpp)
 library(survey)
 library(plotly)
+library(srvyr)
 library(forcats)
+options(dplyr.summarise.inform = FALSE)
+
 ```
 
 ```{r, eval=FALSE, echo=FALSE,  message=FALSE, warning=FALSE}
-ddi<-read_ipums_ddi("~/ExpanDrive/OneDrive Business///cps_00029.xml")
+ddi<-read_ipums_ddi("~/OneDrive - University of Texas at San Antonio/cps_00030.xml")
 cpsdat2<-read_ipums_micro(ddi)
 cpsdat2<-zap_labels(cpsdat2)
 ```
@@ -79,7 +85,7 @@ cpsdat2$duremp_c<-ifelse(cpsdat2$DURUNEMP==999, NA, cpsdat2$DURUNEMP)
 cpsdat2$fb<-ifelse(cpsdat2$YRIMMIG>0, "Foreign Born", "Native Born")
 cpsdat2$avghrs<-ifelse(cpsdat2$AHRSWORKT==999, NA, cpsdat2$AHRSWORKT)
 cpsdat2<-cpsdat2%>%
-  select(emp_bin,CPSIDP, MISH, MONTH, WTFINL, month, race_eth2, curremp,educ, sex, race, emp, YEAR, AGE, stname, PANLWT, EDUC, avghrs, ABSENT, WKSTAT, EMPSAME, MULTJOB, NUMJOB,recentloss,fb, cohort , METRO, duremp_c, lfpart)%>%
+  select(emp_bin,CPSIDP, MISH, MONTH, WTFINL, month, race_eth2, curremp,educ, sex, race, emp, YEAR, AGE, stname, PANLWT, EDUC, avghrs, ABSENT, WKSTAT, EMPSAME, MULTJOB, NUMJOB,recentloss,fb, cohort , METRO, duremp_c, lfpart, METFIPS)%>%
   filter(is.na(race_eth2)==F, month>=as.Date('2019-06-01'))%>%
   #filter(AGE>18)%>%
   group_by(CPSIDP)%>%
@@ -94,7 +100,7 @@ cpsdat2<-cpsdat2%>%
 cpsdat2<-cpsdat2%>%
   filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")
 
-saveRDS(cpsdat2, file="~/git_area/TX_demography/cpsdat_tx.rds")
+saveRDS(cpsdat2, file="~/Documents/GitHub//TX_demography/cpsdat_tx.rds")
 
 #rm(cpsdat2)
 gc()
@@ -103,12 +109,15 @@ gc()
 ```{r, echo=FALSE}
 #setwd(getwd())
 cpsdat2<-readRDS(file = "data/cpsdat_tx.rds")
+cpsdat2$Age_Group = cut(cpsdat2$AGE, breaks = c(16,24, 34, 44, 54, 64, 86), labels = c("16 to 24", "25 to 34", "35 to 44", "45 to 54", "55 to 64", "65 or older"),include.lowest = T)
+
+cpsdat2$metro = car::Recode(cpsdat2$METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'")
 ```
 
 
-```{r}
+```{r,echo=FALSE, eval=FALSE, results='hide'}
 des<-svydesign(ids=~1,weights=~WTFINL, data=cpsdat2)
-svyby(~I(curremp==0), ~month, design=des, FUN=svymean)
+#svyby(~I(curremp==0), ~month, design=des, FUN=svymean)
 
 
 library(srvyr)
@@ -121,6 +130,10 @@ cpsdat2%>%
 # %>%
 #   ggplot(aes(x=month, y=mean))+geom_line()
 ```
+
+The COVID-19 pandemic has led to over 23 million job losses in the United States in March and April of 2020. This increase in unemployment has differentially affected the population, with Black and Hispanic populations seeing higher levels of unemployment and slower rates of job recovery. This represents a historically unprecedented level of unemployment and while as of June, 2020 some areas have exhibited a slow recovery, the near term prospects for those who have lost jobs is uncertain at best. 
+
+While official statistics have examined joblessness from a national perspective, little attention has been paid to sub-national trends in unemployment. This analysis of the patterns of unemployment during COVID-19 in the state of Texas shows that significant variation exists in overall unemployment, and based on the major demographic subpopulations of the state.
 
 
 ```{r, eval=FALSE, echo=FALSE}
@@ -144,9 +157,13 @@ cpsdat2%>%
 
 ```
 
-### national rate map
+The overall unemployment rate for the major race/ethnic groups in the state between January 2020 and July 2020 is shown in Figure 1. We see that differences existed early on in the year, with whites having approximately half the unemployment rate of either Blacks or Latinos. As the pandemic proceeded into March and April, all groups showed increases in unemployment, with white unemployment reaching 9.1% and Latino unemployment reaching 14%. Black unemployment did not peak until May, at 21.8%. 
 
-```{r, fig.height=8, fig.width=10}
+Since May, all subpopulations have shown a gradual decrease in unemployment as the state began to open up businesses. Although unemployment among Blacks decreased in May, in June and July the rate stagnated, and showed an additional increase in July. Among Latinos, May and June showed little change in overall unemployment, with a small decrease in July. Among whites, May and June saw decreases in unemployment, only to increase again in July. 
+
+The overall picture indicates that unemployment in the state has not returned to pre-COVID levels, and could be considered to be stagnant in the recovery. 
+
+```{r,echo=FALSE, fig.height=8, fig.width=10}
 
 outna<-cpsdat2%>%
   as_survey_design(weights=WTFINL)%>%
@@ -161,18 +178,18 @@ outna<-cpsdat2%>%
   srvyr::ungroup()%>%
   arrange( race_eth2, month )
 
-head(outna)
+#head(outna)
 
 p<-outna%>%
   filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
   ggplot()+geom_line(aes(x=month, y=unemp,color=race_eth2, group=race_eth2), lwd=2)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed in Texas by Race/Ethnicity",subtitle = "January to June 2020",
+  labs(title = "Figure 1. Percent Unemployed in Texas by Race/Ethnicity",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
-       y = "Percent Unemployed")+ylim(c(0, .2))+
+       y = "Percent Unemployed")+
   scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+
-  scale_y_continuous(labels = scales::percent)+
+  scale_y_continuous(limits=c(0, .3),labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
@@ -183,105 +200,125 @@ theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 ggsave( filename = "images/tx_unemp.png",height=8, width=10, dpi = "print" )
 fig1<-ggplotly(p)
 fig1
+p
 ```
 
-## gender
-```{r, fig.height=8, fig.width=10}
+Figure 2 further subdivides the Texas population by race/ethnicity and gender. Comparable patterns based on race/ethnicity are seen when males and females are considered separately, but among Latinos and whites, women faced higher levels of unemployment during April and May.
+
+Perhaps the hardest hit group are Black women, who in January and February had unemployment rates almost identical to whites, but increased to over 23.4% in April. This group showed an initial recovery during May and June, but July showed an increase. 
+
+Latino women showed higher rates than men in April and May and a recovery in June and July. 
+
+Whites showed lower rates of unemployment, but both white men and women are showing a trend toward increasing unemployment through June and July. 
+
+```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
   group_by(month, race_eth2, sex )%>%
   summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
           #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
-          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          num=n())%>%
   arrange( month)%>%
   ungroup()%>%
   arrange( race_eth2,sex, month )
 
-head(outna2)
+#head(outna2)
 
 p2<-outna2%>%
-    filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
+    filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino", num>=30)%>%
 
   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed in Texas by Race/Ethnicity and Gender",subtitle = "January to June 2020",
+  labs(title = "Figure 2. Percent Unemployed in Texas by Race/Ethnicity and Gender",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
-       y = "Percent Unemployed")+ylim(c(0, .25))+
-  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~sex)+scale_y_continuous(labels = scales::percent)+
+       y = "Percent Unemployed")+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~sex)+scale_y_continuous(limits =c(0, .3), labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 
 #p$labels$colour<-"Race/Ethnicity"
 #p
+p2
 ggplotly(p2)
 ggsave(filename = "images/tx_unemp_sex.png",height=8, width=10, dpi = "print" )
 ```
 
-## gender x race X education
-```{r, fig.height=8, fig.width=10}
+
+Figure 3 presents the unemployment rate by level of completed education. There are significant differences in unemployment across the four educational levels and race/ethnic groups shown here. Among those with less than high school education, very high rates of unemployment are seen, especially for Blacks, which on average had almost a 40% unemployment rate in April, and continued to have over a 30% unemployment rate in July. 
+
+Among those with high school education, there are similar disparities based on race/ethnicity, with Blacks having almost double the unemployment rates of other groups. Whites and Latinos with high school education show similar patterns of unemployment, with little overall change since April.
+
+Similar patterns are seen for those with some college or associates degrees. Unemployment among whites peaked in April, while for Blacks and Latinos, unemployment peaked in May, and all groups show graduate decreases since May.
+
+Those with college education have fared the best through the pandemic, although, differences based on race/ethnicity are still present. In April, over 10% of Latinos and almost 10% of Blacks were unemployed, compared to 5.7% for whites. By July, some recovery had occurred, but not to pre-pandemic levels. 
+
+```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
-  group_by(month, race_eth2, educ, sex )%>%
+  group_by(month, race_eth2, educ )%>%
   summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
           #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
-          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          num=n())%>%
   arrange( month)%>%
   ungroup()%>%
-  arrange( race_eth2,sex,educ, month )
+  arrange( race_eth2,educ, month )
 
-head(outna2)
+#head(outna2)
 library(forcats)
 p3<-outna2%>%
-    filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino", is.na(educ)==F)%>%
+    filter(num>=10,race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino", is.na(educ)==F)%>%
 
   mutate(educ=fct_relevel(educ,"< High School","High School","Some college","Bachelors +" ))%>%
   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed in Texas by Race/Ethnicity, Gender and Education",subtitle = "January to June 2020",
+  labs(title = "Figure 3. Percent Unemployed in Texas by Education Level",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+#ylim(c(0, .6))+
-  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~educ+sex, ncol = 4)+scale_y_continuous(labels = scales::percent)+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~educ, ncol = 2)+scale_y_continuous(limits=c(0, .5),labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 
 #p$labels$colour<-"Race/Ethnicity"
 #p
+p3
 ggsave(filename = "images/tx_unemp_sex_educ.png",height=8, width=10, dpi = "print" )
 ggplotly(p3)
 ```
 
 
-## foreign born
-```{r, fig.height=8, fig.width=10}
+
+```{r, fig.height=8, fig.width=10,echo=FALSE, eval=FALSE}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
-  group_by(month, race_eth2, fb )%>%
+  group_by(month, fb )%>%
   summarise(#unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
          # avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
           emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
   arrange( month)%>%
   ungroup()%>%
-  arrange( race_eth2,fb, month )
+  arrange( fb, month )
 
-head(outna2)
+#head(outna2)
 
 p4<-outna2%>%
-  mutate(group=paste(race_eth2, fb, sep = "-"))%>%
-  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="Asian.Not Latino", race_eth2!="NHPI.Not Latino", group!="AIAE.Not Latino-Non-citizen")%>%
-  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+ # mutate(group=paste(race_eth2, fb, sep = "-"))%>%
+  #filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="Asian.Not Latino", race_eth2!="NHPI.Not Latino", group!="AIAE.Not Latino-Non-citizen")%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=fb, group=fb), lwd=2)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed in Texas by Race/Ethnicity and Nativity Status",subtitle = "January to June 2020",
+  labs(title = "Percent Unemployed in Texas by Nativity Status",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+ylim(c(0, .25))+
-  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~fb)+scale_y_continuous(labels = scales::percent)+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+scale_y_continuous(labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
@@ -293,7 +330,7 @@ ggplotly(p4)
 #write.csv(outna2, file="~/Documents/GitHub/unemployment/fig_5rates.csv", row.names = F)
 ```
 
-### State rate map
+
 ```{r, fig.height=8, fig.width=10, eval=FALSE, echo=FALSE}
 library(geofacet)
 outst<-cpsdat2%>%
@@ -312,7 +349,7 @@ p<-outst%>%
   #filter(emprate!=0)%>%
   ggplot()+geom_line(aes(x=month, y=emprate, color=emprate))+facet_geo(~stname, grid="us_state_grid2", label="name")+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed by State",subtitle = "February to June 2020",
+  labs(title = "Percent Unemployed by State",subtitle = "February to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+
@@ -351,7 +388,7 @@ p<-outst%>%
   #filter(emprate!=0)%>%
   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+facet_geo(~stname, grid="us_state_grid2", label="name")+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed in Texas by State and Race/Ethnicity",subtitle = "January to June 2020",
+  labs(title = "Percent Unemployed in Texas by State and Race/Ethnicity",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+
@@ -369,7 +406,7 @@ p
 #   #filter(emprate!=0)%>%
 #   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+facet_geo(~stname, grid="us_state_grid2", label="name")+
 #   #scale_fill_discrete(name=)+
-#   labs(title = "Percent Unemployed by State and Race/Ethnicity",subtitle = "February to June 2020",
+#   labs(title = "Percent Unemployed by State and Race/Ethnicity",subtitle = "February to July 2020",
 #        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
 #        x = "Month",
 #        y = "Percent Unemployed")+
@@ -384,8 +421,8 @@ p
 ggsave(plot = p,filename = "~/stunemp.png",height=12, width=16, dpi = "print" )
 write.csv(outst, file="~/Documents/GitHub/unemployment/fig_state_race.csv", row.names = F)
 ```
-## gender x race X education
-```{r, fig.height=10, fig.width=10}
+
+```{r, fig.height=10, fig.width=10, echo=FALSE, eval=FALSE}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
@@ -399,7 +436,7 @@ outna2<-cpsdat2%>%
   arrange( race_eth2,sex,educ, month )
 
 #write.csv(outna2,file = "~/unemp_to_rogelio.csv", row.names = F)
-head(outna2)
+#head(outna2)
 library(forcats)
 p6<-outna2%>%
   filter(nsamp>30,race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", is.na(educ)==F, race_eth2!="Asian.Not Latino", educ !="< High School")%>%
@@ -424,35 +461,38 @@ ggplotly(p6)
 #>>>>>>> a84ccb9e5b8bcff0b7f9cf5252e05dbf049207d3
 ```
 
+Figure 4 shows the estimates of unemployment by age within the state. While age is a significant factor related to unemployment risk during COVID, the youngest workers have been hit much harder than other group. Workers under age 24 experienced the highest levels of unemployment, with rates as high as 25% in May. In June and July, there was some sign of recovery with the unemployment rate decreasing again, but it still remains well above it's pre-COVID level. 
 
-## race* age
-```{r, fig.height=8, fig.width=10}
+Other workers also experienced an approximate doubling of the unemployment rate in April and May, with little sign of recovery in the other ages. 
+
+
+```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
-  mutate(Age_Group = cut(AGE, breaks = c(16,24, 34, 44, 54, 64, 86), labels = c("16 to 24", "25 to 34", "35 to 44", "45 to 54", "55 to 64", "65 or older"),include.lowest = T))%>%
+  #mutate()%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
-  group_by(month, race_eth2, Age_Group )%>%
+  group_by(month, Age_Group )%>%
   summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
           #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
           emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
           nsamp=n())%>%
   arrange( month)%>%
   ungroup()%>%
-  arrange( race_eth2,Age_Group, month )
+  arrange(Age_Group, month )
 
 #write.csv(outna2,file = "~/unemp_to_rogelio.csv", row.names = F)
-head(outna2)
+#head(outna2)
 library(forcats)
 p7<-outna2%>%
-  filter(nsamp>25,race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", is.na(Age_Group)==F, race_eth2!="Asian.Not Latino")%>%
+  filter(nsamp>30)%>%#,race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", is.na(Age_Group)==F, race_eth2!="Asian.Not Latino")%>%
   #mutate(educ=fct_relevel(educ,"< High School","High School","Some college","Bachelors +" ))%>%
-  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+  ggplot()+geom_line(aes(x=month, y=emprate,color=Age_Group, group=Age_Group), lwd=1.5)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed in Texas by Race/Ethnicity, and Age Group",subtitle = "January to May 2020",
+  labs(title = "Figure 4. Percent Unemployed in Texas by  Age Group",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+#ylim(c(0, .6))+
-  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~Age_Group, ncol = 3)+scale_y_continuous(limits = c(0, .45),labels = scales::percent)+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Age Group")+scale_y_continuous(limits = c(0, .3),labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
@@ -462,122 +502,105 @@ theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 ggsave(filename = "images/tx_unemp_age.png",height=8, width=10, dpi = "print" )
 ggplotly(p7)
 #write.csv(outna2, file="~/Documents/GitHub/unemployment/fig_2.csv", row.names = F)
-
+p7
 ```
-## metro status
-```{r, fig.height=8, fig.width=10}
+
+Insufficient sample sizes are available to produce stable estimates for individual metropolitan areas within the state, but the CPS identifies the metropolitan status for its respondents as Central City, Outside Central city and Not Metropolitan. Figure 5 shows the estimates of unemployment for these three classifications. Central city areas have had the highest levels of unemployment in the state, even before COVID. In April, all three types of places showed effectively a tripling of the unemployment rate, with central cities having the higest rates, at nearly 15%. Central cities and suburban areas (Outside Central Cities) have shown slower recovery than non metro areas, which experienced a rapid recovery after April. 
+
+```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F, month>=as.Date('2020-01-01'))%>%
    filter(METRO!=0, METRO!=4)%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
-  group_by(month,  METRO )%>%
+  group_by(month, metro )%>%
   summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
           #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
           emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
           nsamp=n())%>%
   arrange( month)%>%
   ungroup()%>%
-  arrange( METRO, month )
+  arrange( metro, month )
 
 p8<-outna2%>%
   filter(nsamp>30)%>%
-mutate(metro = car::Recode(METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'"))%>%
+#mutate)%>%
   ggplot()+geom_line(aes(x=month, y=emprate,color=metro, group=metro), lwd=1.75)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed by Metropolitan Residence",subtitle = "February to June 2020",
+  labs(title = "Figure 5. Percent Unemployed by Metropolitan Residence",subtitle = "January to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+#ylim(c(0, .4))+
-  scale_color_brewer(type="qual", palette = "Set1", name = "Location")+scale_y_continuous(labels = scales::percent)+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Location")+scale_y_continuous(limits=c(0, .2),labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 ggsave(filename = "images/tx_metro.png",height=8, width=10, dpi = "print" )
 ggplotly(p8)
+p8
 ```
 
-```{r,eval=FALSE, echo=FALSE}
-#p$labels$colour<-"Race/Ethnicity"
-#p
-
-# head(outna2)
-# 
-# outna2%>%
-#   filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino")%>%
-#   filter(METRO!=0, METRO!=4)%>%
-#   mutate(metro = car::Recode(METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'"))%>%
-#   ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
-#   #scale_fill_discrete(name=)+
-#   labs(title = "Percent Unemployed byand Race/Ethnicity and Metropolitan Residence",subtitle = "February to June 2020",
-#        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
-#        x = "Month",
-#        y = "Percent Unemployed")+#ylim(c(0, .4))+
-#   scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~metro)+
-#   #guides(fill=guide_legend(title="Race/Ethnicity"))+
-#   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
-# theme_minimal()+theme(axis.text.x = element_text(angle = 45))
-# 
-# #p$labels$colour<-"Race/Ethnicity"
-# #p
-# ggsave(filename = "~/national_metro_race.png",height=8, width=10, dpi = "print" )
-# 
+```{r,echo=FALSE,  fig.height=8,eval=FALSE, fig.width=10}
 outna2<-cpsdat2%>%
-  filter(is.na(race_eth2)==F, month>=as.Date('2019-12-01'))%>%
-   filter(METRO!=0, METRO!=4)%>%
+  filter(is.na(race_eth2)==F, month>=as.Date('2020-01-01'))%>%
+   #filter(METRO!=0, METRO!=4)%>%
   #mutate(Group = ifelse(stname=="Texas", "Texas","Rest of US"))%>%
-  group_by(month,  METRO, sex, race_eth2 )%>%
+  group_by(month, METFIPS )%>%
   summarise(unemprate =(wtd.mean(recentloss,weights = WTFINL, na.rm=T)),
           #avghrs=wtd.mean(AHRSWORKT,weights = WTFINL, na.rm=T),
-          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)))%>%
+          emprate =(1- wtd.mean(curremp,weights = WTFINL, na.rm=T)),
+          nsamp=n())%>%
   arrange( month)%>%
   ungroup()%>%
-  arrange( METRO, month )
+  arrange( METFIPS, month )
 
-head(outna2)
-
-outna2%>%
-  filter(race_eth2!="multiple.Not Latino",race_eth2!="AIAE.Not Latino", race_eth2!="NHPI.Not Latino", race_eth2!="Asian.Not Latino")%>%
-  filter(METRO!=0, METRO!=4)%>%
-  mutate(metro = car::Recode(METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'"))%>%
-  ggplot()+geom_line(aes(x=month, y=emprate,color=race_eth2, group=race_eth2), lwd=2)+
+p8<-outna2%>%
+  filter(nsamp>30, METFIPS%in%c(41700, 32580,26420,19100,12420, 21340))%>%
+#mutate)%>%
+  ggplot()+geom_line(aes(x=month, y=emprate,color=factor(METFIPS), group=factor(METFIPS) ), lwd=1.75)+
   #scale_fill_discrete(name=)+
-  labs(title = "Percent Unemployed byand Race/Ethnicity and Metropolitan Residence",subtitle = "February to June 2020",
+  labs(title = "Percent Unemployed by Metropolitan Residence",subtitle = "February to July 2020",
        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
        x = "Month",
        y = "Percent Unemployed")+#ylim(c(0, .4))+
-  scale_color_brewer(type="qual", palette = "Set1", name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"))+facet_wrap(~sex+metro)+scale_y_continuous(labels = scales::percent)+
+  scale_color_brewer(type="qual", palette = "Set1", name = "Metro Area",,labels=c(" Austin-Round Rock", "Dallas-Fort Worth-Arlington","El Paso", "Houston-Baytown-Sugar Land", "McAllen-Edinburg-Mission", "San Antonio") )+
+  scale_y_continuous(labels = scales::percent)+
   #guides(fill=guide_legend(title="Race/Ethnicity"))+
   #geom_hline(yintercept = 0, col="red", lwd=1.1)+
 theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 
-#p$labels$colour<-"Race/Ethnicity"
-#p
-ggsave(filename = "images/tx_metro_sex.png",height=8, width=10, dpi = "print" )
-
+ggsave(filename = "images/tx_metro.png",height=8, width=10, dpi = "print" )
+ggplotly(p8)
+p8
 ```
 
-## Statistical Tests 
-```{r}
-des<-survey::svydesign(ids=~1,  weights = ~WTFINL, data=cpsdat2)
+## Statistical Tests for Estimates
+```{r, message=FALSE, warning=FALSE, results='asis'}
+des<-survey::svydesign(ids=~1,
+                       strata=~METFIPS,
+                       weights = ~WTFINL,
+                       data=cpsdat2[cpsdat2$month>as.Date('2019-12-01'),])
 
-m1<-svyglm(emp_bin~factor(race_eth2)+sex+factor(race_eth2)*factor(month), des, family=binomial)
-#summary(m1)
-#anova(m1)
-Anova(m1)
+m1<-svyglm(emp_bin~factor(race_eth2)*factor(month)-1, des, family=binomial)
+regTermTest(m1, test.terms = "factor(race_eth2)")
+knitr::kable(broom::tidy(Anova(m1) ))
 
 m2<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*factor(month), des, family=binomial)
-#summary(m2)
-Anova(m2)
+regTermTest(m2, test.terms = "race_eth2:sex")
+knitr::kable(broom::tidy(Anova(m2) ))
 
-m3<-svyglm(emp_bin~race_eth2+sex+race_eth2*sex*fb*factor(month), des, family=binomial)
-#summary(m3)
-Anova(m3)
+m3<-svyglm(emp_bin~Age_Group*factor(month), des, family=binomial)
+regTermTest(m3, test.terms = "Age_Group")
+knitr::kable(broom::tidy(Anova(m3) ))
 
+m4<-svyglm(emp_bin~metro*factor(month),des, family=binomial)
+regTermTest(m4, test.terms = "metro" )
+knitr::kable(broom::tidy(Anova(m4) ))
 
 ```
+## Methodology
+Monthly Current Population Survey microdata are from the Integrated Public Microdata Series, IPUMS–CPS. Data are subset to contain only those respondents in the civilian labor force over age 16. All estimates are weighted by the WTFINL variable to be representative of the U.S. labor force. All estimates presented are population-weighted means, not all inter-group comparisons have statistical significance. A minimum sample size of 30 respondents for each population subgroup, per month, was used to avoid statistically unstable estimates. The ethnicity variable created here is a combination of both the self-reported race and Hispanic ethnicity of the respondent. Latino/a ethnicity includes all respondents who reported Hispanic ethnicity, regardless of race, Whites include non-Hispanic white respondents and Blacks include non-Hispanic Black respondents. All data and code related to this brief are available at Dr. Corey Sparks’s Github repository [github.com/coreysparks/TX_demography](https://github.com/coreysparks/TX_demography). 
 
-
-```{r}
+```{r,echo=FALSE }
   test<-sessioninfo::session_info()
  knitr::write_bib(test$packages$package, file = "loadedpkgs.bib")
 
