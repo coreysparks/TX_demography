@@ -1,22 +1,46 @@
 ---
-title: "tx demography analysis"
-output: html_document
+title: "Analysis of Texas Educational Attainment"
+author: "Corey Sparks, PhD"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  word_document: default
+  html_document: default
+bibliography: loadedpkgs.bib
+always_allow_html: true
 ---
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+library(ipumsr)
+library(dplyr, warn.conflicts = FALSE)
+library(car)
+library(zoo)
+library(ggplot2)
+library(questionr)
+library(tidyquant)
+library(fpp)
+library(survey)
+library(plotly)
+library(srvyr)
+library(forcats)
+options(dplyr.summarise.inform = FALSE)
+
+```
+
+
 
 ```{r}
 #load("tx_dem_72020.Rdata")
-library(ipumsr)
-ddi<-read_ipums_ddi("~/ExpanDrive/OneDrive Business/usa_00084.xml")
+ddi<-read_ipums_ddi("~/OneDrive - University of Texas at San Antonio//usa_00084.xml")
 data<-read_ipums_micro(ddi)
 
 names(data)<-tolower(names(data))
-data<-haven::zap_labels(data)
 
 ```
 
 ```{r}
-library(car)
-library(dplyr)
+data<-haven::zap_labels(data)
+
+names(data)<-tolower(names(data))
 data$pwt <- data$perwt/100
 data$hwt <- data$hhwt/100
 
@@ -65,10 +89,12 @@ sub<-data%>%
   filter(age>25, is.na(bsplus)==F)
 
 
-save(sub, file="~/ExpanDrive/OneDrive Business/tx_demography/tx_dem_72020_sub.Rdata")
+save(sub, file="~/OneDrive - University of Texas at San Antonio/projects//tx_demography/tx_dem_72020_sub.Rdata")
 
-save(sub, file="tx_dem_72020_sub.Rdata")
->>>>>>> b002c2d3e020652a202fa3cc5494c07f3852fa73
+saveRDS(sub, file="data/tx_dem_sub.rds")
+
+#save(sub, file="tx_dem_72020_sub.Rdata")
+#>>>>>>> b002c2d3e020652a202fa3cc5494c07f3852fa73
 rm(data); gc()
 ```
 
