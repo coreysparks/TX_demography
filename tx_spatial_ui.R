@@ -46,8 +46,11 @@ p1<-txsp%>%
   #filter(week=="week_1")%>%
   ggplot()+geom_sf(aes(fill=pccut))+
   scale_fill_brewer(palette = "Blues")+
-  facet_wrap(~date, nrow=7)
+  facet_wrap(~date, nrow=7)+
+  labs(caption = "Source: TWC Unemployment Insurance Claims \n Calculations by Corey S. Sparks, Ph.D.")+
+  ggtitle(label ="Figure 6. Per capita Unemployment Insurance Claims", subtitle="March 7 to August 15, 2020")
 
+p1<-p1+theme(plot.title = element_text(size=24), plot.subtitle = element_text(size=16))
 #p1
 ggsave(p1, filename = "images/tx_co_weeklyui.png", dpi = "print", width = 24, height = 24)
 
@@ -55,7 +58,7 @@ ggsave(p1, filename = "images/tx_co_weeklyui.png", dpi = "print", width = 24, he
 p2<-txsp%>%
   arrange(NAME,date)%>%
   filter(NAME=="Bexar")%>%
-  ggplot()+geom_line(aes(x=date, y=pcui, color=NAME,group=NAME), size=1)+theme(legend.position = "none")
+  ggplot()+geom_line(aes(x=date, y=pcui, color=NAME,group=NAME), size=1)+theme(legend.position = "none")+theme_minimal()+labs(title = "Figure 6. Per capita by Metropolitan Residence",subtitle = "March 7 to August 15, 2020",caption = "Source: TWC Unemployment Insurance Claims \n Calculations by Corey S. Sparks, Ph.D.")
 
 library(plotly)
 ggplotly(p2)

@@ -573,6 +573,15 @@ ggplotly(p8)
 p8
 ```
 
+## Texas Workforce Commission Uninsurance Claims
+The [Texas Workforce Commission ](https://www.twc.texas.go) has made available weekly numbers of unemployment insurance claims, by county since March, 2020. The county level estimates allow us to see if specific areas within the state are showing higher or lower unemployment levels. The data are downloadable from [this site](https://www.twc.texas.gov/news/unemployment-claims-numbers#trendsForWeeklyInitialUnemploymentClaims).
+
+Using these data, along with county population estimates from the American Community Surey 2018 5 year summary file, per-capita rates of unemployment insurance claims are calculated. These estimates are then presented as a weekly map from March 7th to August 15th. These are shown in Figure 6.
+
+![](images/tx_co_weeklyui.png)
+The figure shows that prior to March 14, unemployment insurance (UI) claims were very low, then starting in the week of March 21st, the rats began to increase in and around the large metropolitan areas (Dallas-Ft. Worth, San Antonio, Austin, I-35 Corridor, Houston-Galveston). By the first week of April, most of the state, with the exception of the Panhandle, had experienced massive increases in UI filings. Following the Govenor's announcement that on April, 28 the state would begin reopening the economy, we see a decrease in UI claims in most areas outside of the major metro areas. By the end of May, the majority of the state had much lower UI claims. The Gulf Coast remained high throughout July, but by the first week of August, the UI claim levels had reduced to almost pre-COVID levels. 
+
+
 ## Statistical Tests for Estimates
 ```{r, message=FALSE, warning=FALSE, results='asis'}
 des<-survey::svydesign(ids=~1,
