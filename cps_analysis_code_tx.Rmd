@@ -1,10 +1,12 @@
 ---
 title: "Analysis of Texas Unemployment During COVID-19"
-author: "Corey Sparks, PhD"
+author: 
+  - name: "[Corey S. Sparks, PhD](https://coreysparks.github.io)"
+    affiliation: "[The University of Texas at San Antonio](https://hcap.utsa.edu/demography)"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 bibliography: loadedpkgs.bib
 always_allow_html: true
 ---
@@ -163,7 +165,7 @@ Since May, all subpopulations have shown a gradual decrease in unemployment as t
 
 The overall picture indicates that unemployment in the state has not returned to pre-COVID levels, and could be considered to be stagnant in the recovery. 
 
-```{r,echo=FALSE, fig.height=8, fig.width=10}
+```{r,echo=FALSE, fig.height=8, fig.width=10,warning=FALSE, message=FALSE}
 
 outna<-cpsdat2%>%
   as_survey_design(weights=WTFINL)%>%
@@ -200,7 +202,7 @@ theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 ggsave( filename = "images/tx_unemp.png",height=8, width=10, dpi = "print" )
 fig1<-ggplotly(p)
 fig1
-p
+#p
 ```
 
 Figure 2 further subdivides the Texas population by race/ethnicity and gender. Comparable patterns based on race/ethnicity are seen when males and females are considered separately, but among Latinos and whites, women faced higher levels of unemployment during April and May.
@@ -242,7 +244,7 @@ theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 
 #p$labels$colour<-"Race/Ethnicity"
 #p
-p2
+#p2
 ggplotly(p2)
 ggsave(filename = "images/tx_unemp_sex.png",height=8, width=10, dpi = "print" )
 ```
@@ -288,7 +290,7 @@ theme_minimal()+theme(axis.text.x = element_text(angle = 45))
 
 #p$labels$colour<-"Race/Ethnicity"
 #p
-p3
+#p3
 ggsave(filename = "images/tx_unemp_sex_educ.png",height=8, width=10, dpi = "print" )
 ggplotly(p3)
 ```
@@ -579,6 +581,8 @@ The [Texas Workforce Commission ](https://www.twc.texas.go) has made available w
 Using these data, along with county population estimates from the American Community Surey 2018 5 year summary file, per-capita rates of unemployment insurance claims are calculated. These estimates are then presented as a weekly map from March 7th to August 15th. These are shown in Figure 6.
 
 ![](images/tx_co_weeklyui.png)
+[click for high resolution image](https://github.com/coreysparks/TX_demography/raw/master/images/tx_co_weeklyui.png)
+
 The figure shows that prior to March 14, unemployment insurance (UI) claims were very low, then starting in the week of March 21st, the rats began to increase in and around the large metropolitan areas (Dallas-Ft. Worth, San Antonio, Austin, I-35 Corridor, Houston-Galveston). By the first week of April, most of the state, with the exception of the Panhandle, had experienced massive increases in UI filings. Following the Govenor's announcement that on April, 28 the state would begin reopening the economy, we see a decrease in UI claims in most areas outside of the major metro areas. By the end of May, the majority of the state had much lower UI claims. The Gulf Coast remained high throughout July, but by the first week of August, the UI claim levels had reduced to almost pre-COVID levels. 
 
 
@@ -607,7 +611,11 @@ knitr::kable(broom::tidy(Anova(m4) ))
 
 ```
 ## Methodology
-Monthly Current Population Survey microdata are from the Integrated Public Microdata Series, IPUMS–CPS. Data are subset to contain only those respondents in the civilian labor force over age 16. All estimates are weighted by the WTFINL variable to be representative of the U.S. labor force. All estimates presented are population-weighted means, not all inter-group comparisons have statistical significance. A minimum sample size of 30 respondents for each population subgroup, per month, was used to avoid statistically unstable estimates. The ethnicity variable created here is a combination of both the self-reported race and Hispanic ethnicity of the respondent. Latino/a ethnicity includes all respondents who reported Hispanic ethnicity, regardless of race, Whites include non-Hispanic white respondents and Blacks include non-Hispanic Black respondents. All data and code related to this brief are available at Dr. Corey Sparks’s Github repository [github.com/coreysparks/TX_demography](https://github.com/coreysparks/TX_demography). 
+Monthly Current Population Survey microdata are from the Integrated Public Microdata Series, IPUMS–CPS. Data are subset to contain only those respondents in the civilian labor force over age 16. All estimates are weighted by the WTFINL variable to be representative of the U.S. labor force. All estimates presented are population-weighted means, not all inter-group comparisons have statistical significance. A minimum sample size of 30 respondents for each population subgroup, per month, was used to avoid statistically unstable estimates. The ethnicity variable created here is a combination of both the self-reported race and Hispanic ethnicity of the respondent. Latino/a ethnicity includes all respondents who reported Hispanic ethnicity, regardless of race, Whites include non-Hispanic white respondents and Blacks include non-Hispanic Black respondents. 
+
+TWC data were obtained from the [Texas Workforce Commission website] (https://www.twc.texas.gov/files/agency/weekly-claims-by-county-twc.xlsx), and merged with the American Community Survey population estimates from the 2018 5 year summary file for Texas counties.
+
+All data and code related to this brief are available at Dr. Corey Sparks’s Github repository [github.com/coreysparks/TX_demography](https://github.com/coreysparks/TX_demography). 
 
 ```{r,echo=FALSE }
   test<-sessioninfo::session_info()
