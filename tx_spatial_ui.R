@@ -7,8 +7,8 @@ txgeo<-txgeo%>%
 
 
 txui<- readxl::read_excel("data/weekly-claims-by-county-twc.xlsx")
-txui<-txui[, 1:25]
-nams<-rep("week", 24);nums<-seq(1:24); nams<-paste(nams,sprintf("%02d", nums), sep="_")
+txui<-txui[-1:-2, 1:31]
+nams<-rep("week", 30);nums<-seq(1:30); nams<-paste(nams,sprintf("%02d", nums), sep="_")
 names(txui)<-c("county", nams)
 head(txui)
 txui$county<-ifelse(txui$county=="De Witt", "DeWitt", txui$county)
@@ -29,7 +29,7 @@ txlong<-txui%>%
 txsp<-geo_join(txgeo, txpop[, c(1,3)], by_sp="GEOID", by_df="GEOID")
 txsp<-geo_join(txsp, txlong, by_sp="GEOID", by_df="fips",how="inner" )
 
-dates<-rev( seq.Date(from=as.Date("2020/03/07"), to=as.Date("2020/08/15"), by = "week"))
+dates<-rev( seq.Date(from=as.Date("2020/03/07"), to=as.Date("2020/09/26"), by = "week"))
 
 txsp<-txsp%>%
   arrange(NAME, week)
@@ -37,7 +37,7 @@ txsp<-txsp%>%
 txsp$date<-rep(dates, 254)
 library(ggplot2)
 
-txsp$pcui<-100*(txsp$value/txsp$B01001_001E)
+txsp$pcui<-100*(as.numeric(txsp$value)/txsp$B01001_001E)
 txsp$pccut<- cut(txsp$pcui,breaks=quantile(txsp$pcui, p=seq(0,1,length.out = 9), na.rm=T), include.lowest = T)
 
 p1<-txsp%>%
@@ -62,3 +62,6 @@ p2<-txsp%>%
 
 library(plotly)
 ggplotly(p2)
+
+
+txsp%>%filter(NAME=="Hidalgo")%>%ggplot(aes(x=date,y=pcui ))+geom_line()
