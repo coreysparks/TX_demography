@@ -29,7 +29,7 @@ options(dplyr.summarise.inform = FALSE)
 ```
 
 ```{r, eval=FALSE, echo=FALSE,  message=FALSE, warning=FALSE}
-ddi<-read_ipums_ddi("~/OneDrive - University of Texas at San Antonio/cps_00031.xml")
+ddi<-read_ipums_ddi("~/OneDrive - University of Texas at San Antonio/cps_00032.xml")
 cpsdat2<-read_ipums_micro(ddi)
 cpsdat2<-zap_labels(cpsdat2)
 ```
