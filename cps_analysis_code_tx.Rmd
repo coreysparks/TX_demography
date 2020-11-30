@@ -8,8 +8,18 @@ output:
   html_document: default
   word_document: default
 bibliography: loadedpkgs.bib
+biblio-style: authoryear
 always_allow_html: true
 ---
+
+Cite from bibliography Wickham  [@R-assertthat]
+
+package cited without author [-@R-assertthat]
+
+cited in line @R-assertthat
+
+
+
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 library(ipumsr)
@@ -624,11 +634,3 @@ All data and code related to this brief are available at Dr. Corey Sparks’s Gi
 ```
 
 # References 
-
-@R-car
-@R-dplyr
-@R-forcats
-@R-ggplot2
-@R-ipumsr
-@R-plotly
-@R-survey
