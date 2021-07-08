@@ -7,13 +7,15 @@ txgeo<-txgeo%>%
 
 
 txui<- readxl::read_excel("data/weekly-claims-by-county-twc.xlsx")
-txui<-txui[-1:-2, 1:31]
-nams<-rep("week", 30);nums<-seq(1:30); nams<-paste(nams,sprintf("%02d", nums), sep="_")
+txui<-txui[c(-1:-2, -257:-262), 1:67]
+nams<-rep("week", 66);nums<-seq(1:66); nams<-paste(nams,sprintf("%02d", nums), sep="_")
 names(txui)<-c("county", nams)
+txui[, 2:67]<-lapply(txui[2:67], as.numeric)
 head(txui)
 txui$county<-ifelse(txui$county=="De Witt", "DeWitt", txui$county)
 txui<-txui%>%
   arrange(county)
+#txui<-txui[-]
 txui$fips<-txgeo$GEOID
 
 library(tidycensus)
@@ -29,7 +31,7 @@ txlong<-txui%>%
 txsp<-geo_join(txgeo, txpop[, c(1,3)], by_sp="GEOID", by_df="GEOID")
 txsp<-geo_join(txsp, txlong, by_sp="GEOID", by_df="fips",how="inner" )
 
-dates<-rev( seq.Date(from=as.Date("2020/03/07"), to=as.Date("2020/09/26"), by = "week"))
+dates<-rev( seq.Date(from=as.Date("2020/03/07"), to=as.Date("2021/06/05"), by = "week"))
 
 txsp<-txsp%>%
   arrange(NAME, week)

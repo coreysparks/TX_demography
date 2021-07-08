@@ -12,14 +12,11 @@ biblio-style: authoryear
 always_allow_html: true
 ---
 
-Cite from bibliography Wickham  [@R-assertthat]
+Cite from bibliography Wickham [@R-assertthat]
 
 package cited without author [-@R-assertthat]
 
 cited in line @R-assertthat
-
-
-
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 library(ipumsr)
@@ -126,7 +123,6 @@ cpsdat2$Age_Group = cut(cpsdat2$AGE, breaks = c(16,24, 34, 44, 54, 64, 86), labe
 cpsdat2$metro = car::Recode(cpsdat2$METRO, recodes = "1='Not Metro';2='Central City'; 3='Outside Central City'")
 ```
 
-
 ```{r,echo=FALSE, eval=FALSE, results='hide'}
 des<-svydesign(ids=~1,weights=~WTFINL, data=cpsdat2)
 #svyby(~I(curremp==0), ~month, design=des, FUN=svymean)
@@ -143,10 +139,9 @@ cpsdat2%>%
 #   ggplot(aes(x=month, y=mean))+geom_line()
 ```
 
-The COVID-19 pandemic has led to over 23 million job losses in the United States in March and April of 2020. This increase in unemployment has differentially affected the population, with Black and Hispanic populations seeing higher levels of unemployment and slower rates of job recovery. This represents a historically unprecedented level of unemployment and while as of June, 2020 some areas have exhibited a slow recovery, the near term prospects for those who have lost jobs is uncertain at best. 
+The COVID-19 pandemic has led to over 23 million job losses in the United States in March and April of 2020. This increase in unemployment has differentially affected the population, with Black and Hispanic populations seeing higher levels of unemployment and slower rates of job recovery. This represents a historically unprecedented level of unemployment and while as of June, 2020 some areas have exhibited a slow recovery, the near term prospects for those who have lost jobs is uncertain at best.
 
 While official statistics have examined joblessness from a national perspective, little attention has been paid to sub-national trends in unemployment. This analysis of the patterns of unemployment during COVID-19 in the state of Texas shows that significant variation exists in overall unemployment, and based on the major demographic subpopulations of the state.
-
 
 ```{r, eval=FALSE, echo=FALSE}
 cpsdat2%>%
@@ -169,11 +164,11 @@ cpsdat2%>%
 
 ```
 
-The overall unemployment rate for the major race/ethnic groups in the state between January 2020 and July 2020 is shown in Figure 1. We see that differences existed early on in the year, with whites having approximately half the unemployment rate of either Blacks or Latinos. As the pandemic proceeded into March and April, all groups showed increases in unemployment, with white unemployment reaching 9.1% and Latino unemployment reaching 14%. Black unemployment did not peak until May, at 21.8%. 
+The overall unemployment rate for the major race/ethnic groups in the state between January 2020 and July 2020 is shown in Figure 1. We see that differences existed early on in the year, with whites having approximately half the unemployment rate of either Blacks or Latinos. As the pandemic proceeded into March and April, all groups showed increases in unemployment, with white unemployment reaching 9.1% and Latino unemployment reaching 14%. Black unemployment did not peak until May, at 21.8%.
 
-Since May, all subpopulations have shown a gradual decrease in unemployment as the state began to open up businesses. Although unemployment among Blacks decreased in May, in June and July the rate stagnated, and showed an additional increase in July. Among Latinos, May and June showed little change in overall unemployment, with a small decrease in July. Among whites, May and June saw decreases in unemployment, only to increase again in July. 
+Since May, all subpopulations have shown a gradual decrease in unemployment as the state began to open up businesses. Although unemployment among Blacks decreased in May, in June and July the rate stagnated, and showed an additional increase in July. Among Latinos, May and June showed little change in overall unemployment, with a small decrease in July. Among whites, May and June saw decreases in unemployment, only to increase again in July.
 
-The overall picture indicates that unemployment in the state has not returned to pre-COVID levels, and could be considered to be stagnant in the recovery. 
+The overall picture indicates that unemployment in the state has not returned to pre-COVID levels, and could be considered to be stagnant in the recovery.
 
 ```{r,echo=FALSE, fig.height=8, fig.width=10,warning=FALSE, message=FALSE}
 
@@ -217,11 +212,11 @@ fig1
 
 Figure 2 further subdivides the Texas population by race/ethnicity and gender. Comparable patterns based on race/ethnicity are seen when males and females are considered separately, but among Latinos and whites, women faced higher levels of unemployment during April and May.
 
-Perhaps the hardest hit group are Black women, who in January and February had unemployment rates almost identical to whites, but increased to over 23.4% in April. This group showed an initial recovery during May and June, but July showed an increase. 
+Perhaps the hardest hit group are Black women, who in January and February had unemployment rates almost identical to whites, but increased to over 23.4% in April. This group showed an initial recovery during May and June, but July showed an increase.
 
-Latino women showed higher rates than men in April and May and a recovery in June and July. 
+Latino women showed higher rates than men in April and May and a recovery in June and July.
 
-Whites showed lower rates of unemployment, but both white men and women are showing a trend toward increasing unemployment through June and July. 
+Whites showed lower rates of unemployment, but both white men and women are showing a trend toward increasing unemployment through June and July.
 
 ```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
@@ -259,14 +254,13 @@ ggplotly(p2)
 ggsave(filename = "images/tx_unemp_sex.png",height=8, width=10, dpi = "print" )
 ```
 
-
-Figure 3 presents the unemployment rate by level of completed education. There are significant differences in unemployment across the four educational levels and race/ethnic groups shown here. Among those with less than high school education, very high rates of unemployment are seen, especially for Blacks, which on average had almost a 40% unemployment rate in April, and continued to have over a 30% unemployment rate in July. 
+Figure 3 presents the unemployment rate by level of completed education. There are significant differences in unemployment across the four educational levels and race/ethnic groups shown here. Among those with less than high school education, very high rates of unemployment are seen, especially for Blacks, which on average had almost a 40% unemployment rate in April, and continued to have over a 30% unemployment rate in July.
 
 Among those with high school education, there are similar disparities based on race/ethnicity, with Blacks having almost double the unemployment rates of other groups. Whites and Latinos with high school education show similar patterns of unemployment, with little overall change since April.
 
 Similar patterns are seen for those with some college or associates degrees. Unemployment among whites peaked in April, while for Blacks and Latinos, unemployment peaked in May, and all groups show graduate decreases since May.
 
-Those with college education have fared the best through the pandemic, although, differences based on race/ethnicity are still present. In April, over 10% of Latinos and almost 10% of Blacks were unemployed, compared to 5.7% for whites. By July, some recovery had occurred, but not to pre-pandemic levels. 
+Those with college education have fared the best through the pandemic, although, differences based on race/ethnicity are still present. In April, over 10% of Latinos and almost 10% of Blacks were unemployed, compared to 5.7% for whites. By July, some recovery had occurred, but not to pre-pandemic levels.
 
 ```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
@@ -305,8 +299,6 @@ ggsave(filename = "images/tx_unemp_sex_educ.png",height=8, width=10, dpi = "prin
 ggplotly(p3)
 ```
 
-
-
 ```{r, fig.height=8, fig.width=10,echo=FALSE, eval=FALSE}
 outna2<-cpsdat2%>%
   filter(is.na(race_eth2)==F,month>=as.Date('2020-01-01'))%>%
@@ -341,7 +333,6 @@ ggsave(filename = "images/tx_unemp_sex_fb.png",height=8, width=10, dpi = "print"
 ggplotly(p4)
 #write.csv(outna2, file="~/Documents/GitHub/unemployment/fig_5rates.csv", row.names = F)
 ```
-
 
 ```{r, fig.height=8, fig.width=10, eval=FALSE, echo=FALSE}
 library(geofacet)
@@ -473,10 +464,9 @@ ggplotly(p6)
 #>>>>>>> a84ccb9e5b8bcff0b7f9cf5252e05dbf049207d3
 ```
 
-Figure 4 shows the estimates of unemployment by age within the state. While age is a significant factor related to unemployment risk during COVID, the youngest workers have been hit much harder than other group. Workers under age 24 experienced the highest levels of unemployment, with rates as high as 25% in May. In June and July, there was some sign of recovery with the unemployment rate decreasing again, but it still remains well above it's pre-COVID level. 
+Figure 4 shows the estimates of unemployment by age within the state. While age is a significant factor related to unemployment risk during COVID, the youngest workers have been hit much harder than other group. Workers under age 24 experienced the highest levels of unemployment, with rates as high as 25% in May. In June and July, there was some sign of recovery with the unemployment rate decreasing again, but it still remains well above it's pre-COVID level.
 
-Other workers also experienced an approximate doubling of the unemployment rate in April and May, with little sign of recovery in the other ages. 
-
+Other workers also experienced an approximate doubling of the unemployment rate in April and May, with little sign of recovery in the other ages.
 
 ```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
@@ -517,7 +507,7 @@ ggplotly(p7)
 p7
 ```
 
-Insufficient sample sizes are available to produce stable estimates for individual metropolitan areas within the state, but the CPS identifies the metropolitan status for its respondents as Central City, Outside Central city and Not Metropolitan. Figure 5 shows the estimates of unemployment for these three classifications. Central city areas have had the highest levels of unemployment in the state, even before COVID. In April, all three types of places showed effectively a tripling of the unemployment rate, with central cities having the higest rates, at nearly 15%. Central cities and suburban areas (Outside Central Cities) have shown slower recovery than non metro areas, which experienced a rapid recovery after April. 
+Insufficient sample sizes are available to produce stable estimates for individual metropolitan areas within the state, but the CPS identifies the metropolitan status for its respondents as Central City, Outside Central city and Not Metropolitan. Figure 5 shows the estimates of unemployment for these three classifications. Central city areas have had the highest levels of unemployment in the state, even before COVID. In April, all three types of places showed effectively a tripling of the unemployment rate, with central cities having the higest rates, at nearly 15%. Central cities and suburban areas (Outside Central Cities) have shown slower recovery than non metro areas, which experienced a rapid recovery after April.
 
 ```{r,echo=FALSE,  fig.height=8, fig.width=10}
 outna2<-cpsdat2%>%
@@ -586,17 +576,17 @@ p8
 ```
 
 ## Texas Workforce Commission Uninsurance Claims
-The [Texas Workforce Commission ](https://www.twc.texas.go) has made available weekly numbers of unemployment insurance claims, by county since March, 2020. The county level estimates allow us to see if specific areas within the state are showing higher or lower unemployment levels. The data are downloadable from [this site](https://www.twc.texas.gov/news/unemployment-claims-numbers#trendsForWeeklyInitialUnemploymentClaims).
+
+The [Texas Workforce Commission](https://www.twc.texas.go) has made available weekly numbers of unemployment insurance claims, by county since March, 2020. The county level estimates allow us to see if specific areas within the state are showing higher or lower unemployment levels. The data are downloadable from [this site](https://www.twc.texas.gov/news/unemployment-claims-numbers#trendsForWeeklyInitialUnemploymentClaims).
 
 Using these data, along with county population estimates from the American Community Surey 2018 5 year summary file, per-capita rates of unemployment insurance claims are calculated. These estimates are then presented as a weekly map from March 7th to August 15th. These are shown in Figure 6.
 
-![](images/tx_co_weeklyui.png)
-[click for high resolution image](https://github.com/coreysparks/TX_demography/raw/master/images/tx_co_weeklyui.png)
+![](images/tx_co_weeklyui.png) [click for high resolution image](https://github.com/coreysparks/TX_demography/raw/master/images/tx_co_weeklyui.png)
 
-The figure shows that prior to March 14, unemployment insurance (UI) claims were very low, then starting in the week of March 21st, the rats began to increase in and around the large metropolitan areas (Dallas-Ft. Worth, San Antonio, Austin, I-35 Corridor, Houston-Galveston). By the first week of April, most of the state, with the exception of the Panhandle, had experienced massive increases in UI filings. Following the Govenor's announcement that on April, 28 the state would begin reopening the economy, we see a decrease in UI claims in most areas outside of the major metro areas. By the end of May, the majority of the state had much lower UI claims. The Gulf Coast remained high throughout July, but by the first week of August, the UI claim levels had reduced to almost pre-COVID levels. 
-
+The figure shows that prior to March 14, unemployment insurance (UI) claims were very low, then starting in the week of March 21st, the rats began to increase in and around the large metropolitan areas (Dallas-Ft. Worth, San Antonio, Austin, I-35 Corridor, Houston-Galveston). By the first week of April, most of the state, with the exception of the Panhandle, had experienced massive increases in UI filings. Following the Govenor's announcement that on April, 28 the state would begin reopening the economy, we see a decrease in UI claims in most areas outside of the major metro areas. By the end of May, the majority of the state had much lower UI claims. The Gulf Coast remained high throughout July, but by the first week of August, the UI claim levels had reduced to almost pre-COVID levels.
 
 ## Statistical Tests for Estimates
+
 ```{r, message=FALSE, warning=FALSE, results='asis'}
 des<-survey::svydesign(ids=~1,
                        strata=~METFIPS,
@@ -620,12 +610,14 @@ regTermTest(m4, test.terms = "metro" )
 knitr::kable(broom::tidy(Anova(m4) ))
 
 ```
+
 ## Methodology
-Monthly Current Population Survey microdata are from the Integrated Public Microdata Series, IPUMS–CPS. Data are subset to contain only those respondents in the civilian labor force over age 16. All estimates are weighted by the WTFINL variable to be representative of the U.S. labor force. All estimates presented are population-weighted means, not all inter-group comparisons have statistical significance. A minimum sample size of 30 respondents for each population subgroup, per month, was used to avoid statistically unstable estimates. The ethnicity variable created here is a combination of both the self-reported race and Hispanic ethnicity of the respondent. Latino/a ethnicity includes all respondents who reported Hispanic ethnicity, regardless of race, Whites include non-Hispanic white respondents and Blacks include non-Hispanic Black respondents. 
 
-TWC data were obtained from the [Texas Workforce Commission website] (https://www.twc.texas.gov/files/agency/weekly-claims-by-county-twc.xlsx), and merged with the American Community Survey population estimates from the 2018 5 year summary file for Texas counties.
+Monthly Current Population Survey microdata are from the Integrated Public Microdata Series, IPUMS--CPS. Data are subset to contain only those respondents in the civilian labor force over age 16. All estimates are weighted by the WTFINL variable to be representative of the U.S. labor force. All estimates presented are population-weighted means, not all inter-group comparisons have statistical significance. A minimum sample size of 30 respondents for each population subgroup, per month, was used to avoid statistically unstable estimates. The ethnicity variable created here is a combination of both the self-reported race and Hispanic ethnicity of the respondent. Latino/a ethnicity includes all respondents who reported Hispanic ethnicity, regardless of race, Whites include non-Hispanic white respondents and Blacks include non-Hispanic Black respondents.
 
-All data and code related to this brief are available at Dr. Corey Sparks’s Github repository [github.com/coreysparks/TX_demography](https://github.com/coreysparks/TX_demography). 
+TWC data were obtained from the [Texas Workforce Commission website] (<https://www.twc.texas.gov/files/agency/weekly-claims-by-county-twc.xlsx>), and merged with the American Community Survey population estimates from the 2018 5 year summary file for Texas counties.
+
+All data and code related to this brief are available at Dr. Corey Sparks's Github repository [github.com/coreysparks/TX_demography](https://github.com/coreysparks/TX_demography).
 
 ```{r,echo=FALSE }
   test<-sessioninfo::session_info()
@@ -633,4 +625,4 @@ All data and code related to this brief are available at Dr. Corey Sparks’s Gi
 
 ```
 
-# References 
+# References
