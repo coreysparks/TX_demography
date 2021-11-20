@@ -6,11 +6,11 @@ txgeo<-txgeo%>%
   arrange(NAME)
 
 
-txui<- readxl::read_excel("data/weekly-claims-by-county-twc.xlsx")
-txui<-txui[c(-1:-2, -257:-262), 1:67]
-nams<-rep("week", 66);nums<-seq(1:66); nams<-paste(nams,sprintf("%02d", nums), sep="_")
+txui<- readxl::read_excel("data/weekly-claims-by-county-twc_new.xlsx")
+txui<-txui[c(-1:-2, -257:-262), 1:83]
+nams<-rep("week", 82);nums<-seq(1:82); nams<-paste(nams,sprintf("%02d", nums), sep="_")
 names(txui)<-c("county", nams)
-txui[, 2:67]<-lapply(txui[2:67], as.numeric)
+txui[, 2:83]<-lapply(txui[2:83], as.numeric)
 head(txui)
 txui$county<-ifelse(txui$county=="De Witt", "DeWitt", txui$county)
 txui<-txui%>%
@@ -20,7 +20,7 @@ txui$fips<-txgeo$GEOID
 
 library(tidycensus)
 
-txpop<-get_acs(geography="county", state = 48, year=2018, variables = "B01001_001", output = "wide")
+txpop<-get_acs(geography="county", state = 48, year=2019, variables = "B01001_001", output = "wide")
 
 library(tidyr)
 library(tigris)
@@ -31,7 +31,7 @@ txlong<-txui%>%
 txsp<-geo_join(txgeo, txpop[, c(1,3)], by_sp="GEOID", by_df="GEOID")
 txsp<-geo_join(txsp, txlong, by_sp="GEOID", by_df="fips",how="inner" )
 
-dates<-rev( seq.Date(from=as.Date("2020/03/07"), to=as.Date("2021/06/05"), by = "week"))
+dates<-rev( seq.Date(from=as.Date("2020/03/07"), to=as.Date("2021/09/25"), by = "week"))
 
 txsp<-txsp%>%
   arrange(NAME, week)
@@ -56,6 +56,27 @@ p1<-p1+theme(plot.title = element_text(size=24), plot.subtitle = element_text(si
 #p1
 ggsave(p1, filename = "images/tx_co_weeklyui.png", dpi = "print", width = 24, height = 24)
 
+library(gganimate)
+txsp$itime <- as.numeric(txsp$date)
+p2<-txsp%>%
+  # mutate(pcui=1000*)%>%
+  #  mutate(pccut = cut())
+  #filter(week=="week_1")%>%
+  ggplot()+geom_sf(aes(fill=pccut))+
+  scale_fill_brewer(palette = "Blues")+
+  #facet_wrap(~date, nrow=7)+
+  labs(caption = "Source: TWC Unemployment Insurance Claims \n Calculations by Corey S. Sparks, Ph.D.")+
+  ggtitle(label ="Figure 6. Per capita Unemployment Insurance Claims", subtitle="March 7 to August 15, 2020")
+
+library(transformr)
+
+anim <- p2 + 
+  transition_time(time = itime)+ease_aes("linear")+
+  shadow_wake(wake_length = .1, alpha = FALSE)
+
+anim
+animation::ani.options(interval = 2)
+gganimate(p2, ani.width =  1250, ani.height = 585, "TXui.gif", title_frame = TRUE)
 
 p2<-txsp%>%
   arrange(NAME,date)%>%

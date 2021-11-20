@@ -1,0 +1,574 @@
+---
+title: "carsey"
+author: "Coda Rayo-Garza"
+date: "3/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("knitr")
+opts_knit$set(root.dir = "~/Stats II/Data")
+library(ipumsr,quietly = T)
+library(dplyr,quietly = T)
+library(car,quietly = T)
+library(zoo,quietly = T)
+library(ggplot2,quietly = T)
+library(questionr,quietly = T)
+library(survey,quietly = T)
+
+
+load("~/OneDrive - University of Texas at San Antonio/projects/carsey_brief//cpsbriefdata.Rdata")
+#View(cpsdat)
+source("C:/Users/ozd504/Documents/GitHub/carseycolors/carsey_colors.R")
+names(cpsdat) <- tolower(names(cpsdat))
+#names(cpsdat)
+
+##describe(cpsdat$region)
+
+#Create a weighted freq table of lf part by month by region 
+cpsdat$yr_month <- as.Date(as.yearmon(paste(cpsdat$year,cpsdat$month, sep="/"), format = "%Y/%m"))
+cpsdat$reg<- car::recode(cpsdat$region, recodes =" 11:12='Northeast' ; 21:22='North Central' ; 31:33='South'; 41:42='West';97=NA", as.factor=T)
+cpsdat$educ2<-car::Recode(cpsdat$educ, recodes = "21:110='< College';  111:125='Bachelors +';else=NA; 0=NA", as.factor=T)
+
+cpsdat<- cpsdat%>%
+  mutate(emp = Recode(empstat, recodes = "0 = NA; 1='af'; 10='curr work'; 12 = 'recent no job'; 20:22='unemp'"),
+         sex=Recode(sex, recodes = "1='Male'; 2='Female'; else=NA", as.factor=T),
+         race = Recode (race, recodes = "100 = 'White'; 200='Black';300='AIAE';651='Asian';652='NHPI';802:830='multiple'; else=NA"),
+         hisp= ifelse(hispan !=0, "Latino", "Not Latino"),
+         nativity = ifelse(citizen%in%c(1:4), 1, 0))
+
+cpsdat$emp_bin<-ifelse(cpsdat$empstat%in%c(10, 12), 1, 0)
+cpsdat$race_eth<-interaction(cpsdat$race, cpsdat$hisp)
+library(stringr)
+cpsdat$race_eth2<-ifelse(str_sub(as.character(cpsdat$race_eth), start = -10)=="Not Latino", as.character(cpsdat$race_eth),"Latino")
+
+# cpsdat<-cpsdat%>%
+#   filter(race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino", race_eth2!="Asian.Not Latino", age>=16)
+
+des<-survey::svydesign(ids=~1,  weights = ~wtfinl , data=cpsdat[is.na(cpsdat$wtfinl)==F,])
+
+totm<-data.frame(svytable(~yr_month+emp_bin, des))
+
+```
+
+```{r}
+test<- cpsdat%>%
+  filter(emp_bin==1,  race_eth2=="Latino", is.na(educ2)==F )%>%
+  group_by(race_eth2, sex, nativity, yr_month, educ2)%>%
+  summarize(ns = n())
+  
+table(test$ns >=30)
+
+
+```
+
+
+```{r}
+total<-data.frame(svytable(~yr_month+emp_bin,des))
+
+
+totalyr_month<- as.Date(total$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- total %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select( february)
+
+lfpartreg$february<-febreg$february
+
+
+#str(lfpartreg)
+
+#library(forcats)
+feb <- lfpartreg$Freq[lfpartreg$yr_month=="2020-02-01"]
+may <- lfpartreg$Freq[lfpartreg$yr_month=="2021-05-01"]
+diff<- lfpartreg$Freq[lfpartreg$yr_month=="2020-02-01"] - lfpartreg$Freq[lfpartreg$yr_month=="2021-05-01"]
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq))%>%
+  ggplot(aes(x=yr_month, y=pct_ch, group="Change"))+
+  geom_line(color=carsey_colors[1], lwd=1.15)+
+  geom_hline(yintercept = max(lfpartreg$Freq), lwd=.7, lty=2)+
+  geom_hline(yintercept = lfpartreg$Freq[lfpartreg$yr_month=="2021-05-01"], lwd=.7, lty=2)+
+  geom_segment(aes(x= "2021-05-01", y= feb, xend = "2021-05-01", yend = may ),
+               arrow = arrow(ends = "both", length = unit(.2, "cm")))+
+  # geom_point()
+  #  geom_line(aes(group = yr_month),
+  #           col = "grey")+
+  annotate("text", x = "2021-04-01", y = 155000000, label = "- 6,486,879")+
+  annotate("text", x = "2021-01-01", y = 157402659, label = "Pre Pandemic")+
+annotate("text", x = "2021-01-01", y = 153000000, label = "May 2021")+
+  #facet_wrap(~sex)+
+  labs(title = "Number of Employed People per Month",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "Millions of Jobs")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format(scale = .000001))
+  
+
+# p2<- lfpartreg%>%
+#  # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+#   mutate(pct_ch = (Freq/february)*100-100)%>%
+#   ggplot()+
+#   geom_line(aes(x=yr_month, y=pct_ch, group="Change"),color=carsey_colors[1], lwd=1.15)+
+#   #geom_hline(yintercept = 0, lwd=.7, lty=2)+
+#   #facet_wrap(~sex)+
+#   labs(title = "Total Number of Jobs per Month",subtitle = "February 2020 to May 2021",
+#        caption = "Source: IPUMS CPS Monthly Data \n Calculations by Corey S. Sparks, Ph.D.",
+#        x = "Month",
+#        y = "Millions of Jobs")+
+#   theme_minimal()+
+#   theme(axis.text.x = element_text(angle = 45) )+
+#   scale_y_continuous(labels = scales::number_format())
+# 
+# library(patchwork)
+# 
+# p1 + p2
+
+ ggsave("images/rogelio_total.png",height=8, width=10, dpi = "print")
+
+```
+
+```{r}
+byrace<-data.frame(svytable(~yr_month+emp_bin+educ2,des))
+
+
+byrace$yr_month<- as.Date(byrace$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byrace %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select( educ2, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c( "educ2"))
+
+pcts<-lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+#str(lfpartreg)
+
+#library(forcats)
+
+lfpartreg%>%
+   
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = educ2, color=educ2), lwd=1.15)+
+  geom_hline(yintercept = 0, lty=2, lwd=.7)+
+  #facet_wrap(~sex)+
+  labs(title = "Job Gains and Losses by Gender and Education",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  #scale_y_continuous(labels = scales::number_format())+
+  #scale_color_carsey(name = "Education", labels= c("< College", "Bachelors +"))
+  scale_color_manual( name = "Education",
+                      labels= c("< College", "Bachelors +"), values = c("#004f9e","#e36c2c"))
+
+ ggsave("images/rogelio_gender_educ.png",height=8, width=10, dpi = "print")
+
+```
+
+```{r fig.height=8, fig.width=10}
+byrace<-data.frame(svytable(~yr_month+emp_bin+educ2+race_eth2+sex,des))
+
+
+byrace$yr_month<- as.Date(byrace$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byrace %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select( educ2,race_eth2,sex,february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c("sex","educ2", "race_eth2"))
+
+
+pcts<-lfpartreg%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+lfpartreg%>%
+  filter(race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino",  race_eth2!="Asian.Not Latino")%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = race_eth2, color=race_eth2), lwd=1.15)+
+  geom_hline(yintercept = 0, lty=2, lwd=.7)+
+  facet_wrap(~educ2+sex)+
+  labs(title = "Job Gains and Losses by Gender and Education",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+  #scale_color_carsey(name = "Education", labels= c("< College", "Bachelors +"))
+   scale_color_manual( name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"), values = c("#004f9e","#e36c2c","#4eaf49"))
+
+ ggsave("images/rogelio_gender_educ.png",height=8, width=10, dpi = "print")
+
+```
+
+
+```{r}
+byreg <- data.frame(svytable(~yr_month+emp_bin+sex,des))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(sex, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by="sex")
+
+
+#str(lfpartreg)
+
+library(forcats)
+
+
+pcts<-lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = sex, color=factor(sex)), lwd=1.15)+
+  geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  labs(title = "Job Gains and Losses by Gender",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+   scale_color_manual( name = "Gender",labels=c("Female", "Male"), values = c("#004f9e","#e36c2c","#4eaf49"))
+
+ ggsave("images/rogelio_gender.png",height=8, width=10, dpi = "print")
+```
+
+```{r}
+byreg <- data.frame(svytable(~yr_month+emp_bin+sex+race_eth2,des))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01'), race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino",  race_eth2!="Asian.Not Latino" )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(sex, race_eth2, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c("sex",  "race_eth2"))
+
+
+pcts<-lfpartreg%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = race_eth2, color=factor(race_eth2)), lwd=1.15)+
+ # geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  labs(title = "Change in Number of Employed People by Race/Ethnicity and Gender",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  facet_wrap(~sex)+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+   scale_color_manual( name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"), values = c("#004f9e","#e36c2c","#4eaf49"))
+
+ ggsave("images/rogelio_race_gender.png",height=8, width=10, dpi = "print")
+```
+
+```{r}
+byreg <- data.frame(svytable(~yr_month+emp_bin+race_eth2,des))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01'),race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino",  race_eth2!="Asian.Not Latino" )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(race_eth2, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c( "race_eth2"))
+
+
+#str(lfpartreg)
+
+#library(forcats)
+pcts<-lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = race_eth2, color=factor(race_eth2)), lwd=1.15)+
+  geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  labs(title = "Job Gains and Losses by Race/Ethnicity and Gender",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data\n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  #facet_wrap(~sex)+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+  #scale_color_carsey(name = "Race/Ethnicity", labels=c("Black", "Latino", "White"))
+ scale_color_manual( name = "Race/Ethnicity",labels=c(" Black", "Latino"," White"), values = c("#004f9e","#e36c2c","#4eaf49"))
+ ggsave("images/rogelio_race_gender.png",height=8, width=10, dpi = "print")
+```
+
+```{r}
+byreg <- data.frame(svytable(~yr_month+emp_bin+sex+race_eth2,des))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01'),race_eth2!="NHPI.Not Latino", race_eth2!="AIAE.Not Latino",race_eth2!="multiple.Not Latino",  race_eth2!="Asian.Not Latino" )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(sex, race_eth2, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c("sex", "race_eth2"))
+
+pcts<-lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+#str(lfpartreg)
+
+#library(forcats)
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = race_eth2, color=factor(race_eth2)), lwd=1.15)+
+  geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  labs(title = "Job Gains and Losses by Race/Ethnicity and Gender",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  facet_wrap(~sex)+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+  scale_color_carsey(name = "Race/Ethnicity", labels=c("Black", "Latino", "White"))
+
+ ggsave("images/rogelio_race_gender.png",height=8, width=10, dpi = "print")
+```
+
+```{r}
+byreg <- data.frame(svytable(~yr_month+emp_bin+reg,des))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(reg, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by="reg")
+
+
+#str(lfpartreg)
+
+library(forcats)
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = reg, color=factor(reg)), lwd=1.15)+
+  geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  labs(title = "Job Gains and Losses by Census Region",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+  scale_color_carsey(name = "Region")
+
+ ggsave("images/regional_jobs.png",height=8, width=10, dpi = "print")
+```
+## latino native + educ + gender
+```{r, fig.height=8, fig.width=10}
+des2<-subset(des, race_eth2 =="Latino")
+
+
+
+byreg <- data.frame(svytable(~yr_month+emp_bin+nativity+sex+educ2,des2))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(nativity,sex,educ2, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c("nativity","educ2", "sex"))
+
+
+pcts<-lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+
+library(forcats)
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = nativity, color=factor(nativity)), lwd=1.15)+
+  geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  facet_wrap(~sex+educ2)+
+  labs(title = "Change in Number of Employed People by Nativity and Gender among Latinos",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data\n Calculations by Corey S. Sparks, Ph.D.",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+  scale_color_carsey(name = "Nativity", labels =c("Foreign Born", "Native Born"))
+
+ ggsave("images/rogelio_native_sex_educ.png",height=8, width=10, dpi = "print")
+```
+
+```{r}
+des2<-subset(des, race_eth2 =="Latino")
+
+byreg <- data.frame(svytable(~yr_month+emp_bin+nativity+sex,des2))
+byreg$yr_month<- as.Date(byreg$yr_month)
+#View(byreg)
+
+#one for lfpart yes only 
+lfpartreg <- byreg %>%
+  filter(emp_bin==1,  yr_month!=('2020-01-01') )
+ # mutate(
+  #  prevmonth=lag(Freq,1), fmonth = ifelse(yr_month== ('2020-02-01'), 1, 0)) %>%
+  #mutate(differnce=Freq-prevmonth)
+#View(lfpartreg)
+
+febreg<-lfpartreg%>%
+  filter(yr_month==('2020-02-01'))%>%
+  rename(february= Freq)%>%
+  select(nativity,sex, february)
+
+lfpartreg<- left_join(lfpartreg, febreg, by=c("nativity", "sex"))
+
+
+pcts<-lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)
+
+
+library(forcats)
+
+lfpartreg%>%
+ # filter(is.na(differnce)==F,  yr_month!=('2020-01-01'))%>%
+  mutate(pct_ch = (Freq/february)*100-100)%>%
+  ggplot()+
+  geom_line(aes(x=yr_month, y=pct_ch, group = nativity, color=factor(nativity)), lwd=1.15)+
+  #geom_hline(yintercept = 0, lwd=.7,lty=2)+
+  facet_wrap(~sex)+
+  labs(title = "Change in Number of Workers by Nativity and Gender among Latinos",subtitle = "February 2020 to May 2021",
+       caption = "Source: IPUMS CPS Monthly Data",
+       x = "Month",
+       y = "% Jobs Recovered")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))+
+  scale_y_continuous(labels = scales::number_format())+
+  scale_color_carsey(name = "Nativity", labels =c("Foreign Born", "Native Born"))
+
+ ggsave("images/rogelio_native_sex.png",height=8, width=10, dpi = "print")
+```
